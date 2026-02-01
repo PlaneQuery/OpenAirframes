@@ -52,10 +52,10 @@ jobs:
             Automated daily snapshot generated at 06:00 UTC for ${{ steps.meta.outputs.date }}.
 
             Assets:
-            - ReleasableAircraft_${{ steps.meta.outputs.date }}.csv
+            - Master_${{ steps.meta.outputs.date }}.csv
             - ReleasableAircraft_${{ steps.meta.outputs.date }}.zip
           files: |
-            data/faa_releasable/ReleasableAircraft_${{ steps.meta.outputs.date }}.csv
+            data/faa_releasable/Master_${{ steps.meta.outputs.date }}.csv
             data/faa_releasable/ReleasableAircraft_${{ steps.meta.outputs.date }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

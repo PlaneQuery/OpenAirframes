@@ -6,7 +6,7 @@ date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 out_dir = Path("data/faa_releasable")
 out_dir.mkdir(parents=True, exist_ok=True)
 zip_name = f"ReleasableAircraft_{date_str}.zip"
-csv_name = f"ReleasableAircraft_{date_str}.csv"
+csv_name = f"Master_{date_str}.csv"
 
 zip_path = out_dir / zip_name
 csv_path = out_dir / csv_name
