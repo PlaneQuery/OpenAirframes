@@ -9,33 +9,44 @@ import subprocess, re
 from pathlib import Path
 from collections import OrderedDict
 
-def run(*args: str) -> str:
-    return subprocess.check_output(args, text=True).strip()
+REPO = "/Users/jonahgoode/Documents/PlaneQuery/Other-Code/scrape-faa-releasable-aircraft"
+OUT_ROOT = Path("data/faa_releasable_historical")
+OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
-# Get commits that touched any MASTER-*.txt, oldest -> newest
-log = run("git", "log", "--reverse", "--format=%H %cs", "--", ".")
-# If you want to restrict to only commits that touched the master parts, use:
-# log = run("git", "log", "--reverse", "--format=%H %cs", "--", "MASTER-1.txt")
+def run_git(*args: str, text: bool = True) -> str:
+    return subprocess.check_output(
+        ["git", "-C", REPO, *args],
+        text=text
+    ).strip()
+
+# Commits (oldest -> newest), restricted to master parts
+log = run_git(
+    "log",
+    "--reverse",
+    "--format=%H %cs",
+    "--",
+    "MASTER-1.txt"
+)
 
 lines = [ln for ln in log.splitlines() if ln.strip()]
 if not lines:
     raise SystemExit("No commits found.")
 
-# Map date -> last commit SHA on that date (Ordered by history)
+# Map date -> last commit SHA on that date (only Feb 2024)
 date_to_sha = OrderedDict()
 for ln in lines:
     sha, date = ln.split()
-    # keep last SHA per day
-    date_to_sha[date] = sha
+    if date.startswith("2024-02"):
+        date_to_sha[date] = sha
 
-out_root = Path("out_master_by_day")
-out_root.mkdir(exist_ok=True)
+if not date_to_sha:
+    raise SystemExit("No February 2024 commit-days found.")
 
 master_re = re.compile(r"^MASTER-(\d+)\.txt$")
 
 for date, sha in date_to_sha.items():
-    # list files at this commit, filter MASTER-*.txt in repo root
-    names = run("git", "ls-tree", "--name-only", sha).splitlines()
+    names = run_git("ls-tree", "--name-only", sha).splitlines()
+
     parts = []
     for n in names:
         m = master_re.match(n)
@@ -44,20 +55,21 @@ for date, sha in date_to_sha.items():
     parts.sort()
 
     if not parts:
-        # no master parts in that commit/day; skip
         continue
 
-    day_dir = out_root / date
+    day_dir = OUT_ROOT / date
     day_dir.mkdir(parents=True, exist_ok=True)
     out_path = day_dir / "Master.txt"
 
     with out_path.open("wb") as w:
         for _, fname in parts:
-            data = subprocess.check_output(["git", "show", f"{sha}:{fname}"])
+            data = subprocess.check_output(
+                ["git", "-C", REPO, "show", f"{sha}:{fname}"]
+            )
             w.write(data)
             if data and not data.endswith(b"\n"):
                 w.write(b"\n")
 
     print(f"{date} {sha[:7]} -> {out_path} ({len(parts)} parts)")
 
-print(f"\nDone. Output root: {out_root.resolve()}")
+print(f"\nDone. Output root: {OUT_ROOT.resolve()}")
