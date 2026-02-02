@@ -106,7 +106,7 @@ for date, sha in date_to_sha.items():
     print(f"{date} {sha[:7]} -> {day_dir} (master parts: {len(parts)})")
     # 4) Convert ZIP -> CSV
     out_csv = day_dir / f"ReleasableAircraft_{date}.csv"
-    df_new = convert_faa_master_txt_to_df(zip_path, out_csv, date)
+    df_new = convert_faa_master_txt_to_df(zip_path, date)
     if df_base.empty:
         df_base = df_new
         print(len(df_base), "total entries so far")
