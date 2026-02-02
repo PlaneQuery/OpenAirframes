@@ -1,0 +1,106 @@
+name: Process Historical FAA Data
+
+on:
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Generate date ranges
+        id: set-matrix
+        run: |
+          python3 << 'EOF'
+          import json
+          from datetime import datetime, timedelta
+          
+          start = datetime(2023, 8, 16)
+          end = datetime(2026, 1, 1)
+          
+          ranges = []
+          current = start
+          
+          while current < end:
+            # Start of current month
+            month_start = current
+            # Calculate next month (handle year rollover)
+            if current.month == 12:
+              month_end = datetime(current.year + 1, 1, 1)
+            else:
+              month_end = datetime(current.year, current.month + 1, 1)
+            # Don't go past the end date
+            if month_end > end:
+              month_end = end
+            
+            ranges.append({
+              "since": month_start.strftime("%Y-%m-%d"),
+              "until": month_end.strftime("%Y-%m-%d")
+            })
+            
+            current = month_end
+          
+          print(f"::set-output name=matrix::{json.dumps(ranges)}")
+          EOF
+
+  process-chunk:
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5  # Process 5 chunks at a time
+      matrix:
+        range: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Process chunk ${{ matrix.range.since }} to ${{ matrix.range.until }}
+        run: |
+          python src/get_historical_faa.py "${{ matrix.range.since }}" "${{ matrix.range.until }}"
+      
+      - name: Upload CSV artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: csv-${{ matrix.range.since }}-to-${{ matrix.range.until }}
+          path: data/faa_releasable_historical/*.csv
+          retention-days: 1
+
+  create-release:
+    needs: process-chunk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          find artifacts -name "*.csv" -exec cp {} release-files/ \;
+          ls -lh release-files/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: historical-faa-${{ github.run_number }}
+          name: Historical FAA Data Release ${{ github.run_number }}
+          body: |
+            Automated release of historical FAA aircraft data
+            Processing period: 2023-08-16 to 2026-01-01
+            Generated: ${{ github.event.repository.updated_at }}
+          files: release-files/*.csv
+          draft: false
+          prerelease: false
