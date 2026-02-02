@@ -14,23 +14,35 @@ from derive_from_faa_master_txt import convert_faa_master_txt_to_csv
 import zipfile
 import pandas as pd
 
-REPO = "/Users/jonahgoode/Documents/PlaneQuery/Other-Code/scrape-faa-releasable-aircraft"
+# Clone repository if it doesn't exist
+REPO = Path("data/scrape-faa-releasable-aircraft")
+if not REPO.exists():
+    print(f"Cloning repository to {REPO}...")
+    subprocess.run([
+        "git", "clone",
+        "https://github.com/simonw/scrape-faa-releasable-aircraft",
+        str(REPO)
+    ], check=True)
+    print("Repository cloned successfully.")
+else:
+    print(f"Repository already exists at {REPO}")
+
 OUT_ROOT = Path("data/faa_releasable_historical")
 OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
 def run_git_text(*args: str) -> str:
-    return subprocess.check_output(["git", "-C", REPO, *args], text=True).strip()
+    return subprocess.check_output(["git", "-C", str(REPO), *args], text=True).strip()
 
 def run_git_bytes(*args: str) -> bytes:
-    return subprocess.check_output(["git", "-C", REPO, *args])
+    return subprocess.check_output(["git", "-C", str(REPO), *args])
 
 # All commits in Feb 2024 (oldest -> newest)
 log = run_git_text(
     "log",
     "--reverse",
     "--format=%H %cs",
-    "--since=2024-01-01",
-    "--until=2024-08-08",
+    "--since=2024-06-01",
+    "--until=2024-06-08",
 )
 lines = [ln for ln in log.splitlines() if ln.strip()]
 if not lines:
