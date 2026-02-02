@@ -4,7 +4,7 @@ import re
 from derive_from_faa_master_txt import concat_faa_historical_df
 
 def concatenate_aircraft_csvs(
-    input_dir: Path = Path("data/faa_releasable_historical"),
+    input_dir: Path = Path("data/concat"),
     output_dir: Path = Path("data/planequery_aircraft"),
     filename_pattern: str = r"planequery_aircraft_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.csv"
 ):
@@ -84,6 +84,6 @@ def concatenate_aircraft_csvs(
 if __name__ == "__main__":
     # Example usage - modify these paths as needed
     concatenate_aircraft_csvs(
-        input_dir=Path("data/faa_releasable_historical"),
+        input_dir=Path("data/concat"),
         output_dir=Path("data/planequery_aircraft")
     )
