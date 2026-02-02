@@ -24,17 +24,6 @@ args = parser.parse_args()
 
 # Clone repository if it doesn't exist
 REPO = Path("data/scrape-faa-releasable-aircraft")
-if not REPO.exists():
-    print(f"Cloning repository to {REPO}...")
-    subprocess.run([
-        "git", "clone",
-        "https://github.com/simonw/scrape-faa-releasable-aircraft",
-        str(REPO)
-    ], check=True)
-    print("Repository cloned successfully.")
-else:
-    print(f"Repository already exists at {REPO}")
-
 OUT_ROOT = Path("data/faa_releasable_historical")
 OUT_ROOT.mkdir(parents=True, exist_ok=True)
 

@@ -44,8 +44,25 @@ jobs:
           print(f"::set-output name=matrix::{json.dumps(ranges)}")
           EOF
 
+  clone-faa-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache FAA repository
+        id: cache-faa-repo
+        uses: actions/cache@v4
+        with:
+          path: data/scrape-faa-releasable-aircraft
+          key: faa-repo-v1
+          
+      - name: Clone FAA repository
+        if: steps.cache-faa-repo.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p data
+          git clone https://github.com/simonw/scrape-faa-releasable-aircraft data/scrape-faa-releasable-aircraft
+          echo "Repository cloned successfully"
+
   process-chunk:
-    needs: generate-matrix
+    needs: [generate-matrix, clone-faa-repo]
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 5  # Process 5 chunks at a time
@@ -60,14 +77,12 @@ jobs:
         with:
           python-version: '3.12'
       
-      - name: Cache FAA repository
-        id: cache-faa-repo
-        uses: actions/cache@v4
+      - name: Restore FAA repository cache
+        uses: actions/cache/restore@v4
         with:
           path: data/scrape-faa-releasable-aircraft
           key: faa-repo-v1
-          restore-keys: |
-            faa-repo-v1
+          fail-on-cache-miss: true
       
       - name: Install dependencies
         run: |
