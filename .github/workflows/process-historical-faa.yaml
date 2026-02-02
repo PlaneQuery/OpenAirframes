@@ -60,6 +60,15 @@ jobs:
         with:
           python-version: '3.12'
       
+      - name: Cache FAA repository
+        id: cache-faa-repo
+        uses: actions/cache@v4
+        with:
+          path: data/scrape-faa-releasable-aircraft
+          key: faa-repo-v1
+          restore-keys: |
+            faa-repo-v1
+      
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
