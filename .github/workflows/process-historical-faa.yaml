@@ -60,7 +60,7 @@ jobs:
     needs: [generate-matrix, clone-faa-repo]
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 10  # Process 10 chunks at a time
+      max-parallel: 256  # GitHub Actions maximum
       matrix:
         range: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     steps:
