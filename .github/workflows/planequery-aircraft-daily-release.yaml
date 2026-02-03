@@ -1,4 +1,4 @@
-name: FAA daily snapshot + release
+name: planequery-aircraft Daily Release
 
 on:
   schedule:
@@ -29,18 +29,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run snapshot script
+      - name: Run daily release script
         run: |
-          python src/snapshot_faa.py
+          python src/create_daily_planequery_aircraft_release.py
           ls -lah data/faa_releasable
+          ls -lah data/planequery_aircraft
 
       - name: Prepare release metadata
         id: meta
         run: |
           DATE=$(date -u +"%Y-%m-%d")
           TAG="faa-${DATE}"
+          # Find the CSV file in data/planequery_aircraft matching the pattern
+          CSV_FILE=$(ls data/planequery_aircraft/planequery_aircraft_*_${DATE}.csv | head -1)
+          CSV_BASENAME=$(basename "$CSV_FILE")
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "csv_file=$CSV_FILE" >> "$GITHUB_OUTPUT"
+          echo "csv_basename=$CSV_BASENAME" >> "$GITHUB_OUTPUT"
           echo "name=FAA ReleasableAircraft snapshot ($DATE)" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release and upload assets
@@ -52,10 +58,10 @@ jobs:
             Automated daily snapshot generated at 06:00 UTC for ${{ steps.meta.outputs.date }}.
 
             Assets:
-            - Master_${{ steps.meta.outputs.date }}.csv
+            - ${{ steps.meta.outputs.csv_basename }}
             - ReleasableAircraft_${{ steps.meta.outputs.date }}.zip
           files: |
-            data/faa_releasable/Master_${{ steps.meta.outputs.date }}.csv
+            ${{ steps.meta.outputs.csv_file }}
             data/faa_releasable/ReleasableAircraft_${{ steps.meta.outputs.date }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
