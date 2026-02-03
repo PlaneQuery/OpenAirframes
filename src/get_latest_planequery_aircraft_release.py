@@ -126,8 +126,7 @@ def download_latest_aircraft_csv(
     return saved_to
 
 def get_latest_aircraft_csv_df():
-    # csv_path = download_latest_aircraft_csv()
-    csv_path = Path("/Users/jonahgoode/Documents/PlaneQuery/Code/planequery-aircraft/data/faa_releasable_historical/planequery_aircraft_2024-06-05_2024-06-08.csv")
+    csv_path = download_latest_aircraft_csv()
     import pandas as pd
     df = pd.read_csv(csv_path, dtype={'transponder_code': str, 
            'unique_regulatory_id': str, 
