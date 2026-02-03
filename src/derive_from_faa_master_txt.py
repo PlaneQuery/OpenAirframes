@@ -44,6 +44,10 @@ def convert_faa_master_txt_to_df(zip_path: Path, date: str):
     reg_idx = cols.index("registration_number")
     cols.insert(reg_idx + 1, "planequery_airframe_id")
     df = df[cols]
+    
+    # Convert all NaN to empty strings
+    df = df.fillna("")
+    
     return df
 
 
