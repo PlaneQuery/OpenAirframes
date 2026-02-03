@@ -47,7 +47,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "csv_file=$CSV_FILE" >> "$GITHUB_OUTPUT"
           echo "csv_basename=$CSV_BASENAME" >> "$GITHUB_OUTPUT"
-          echo "name=FAA ReleasableAircraft snapshot ($DATE)" >> "$GITHUB_OUTPUT"
+          echo "name=planequery-aircraft snapshot ($DATE)" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
