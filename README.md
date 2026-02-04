@@ -222,7 +222,7 @@ Current: **1.0.0**
 
 ## 📄 License
 
-Data under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+Data under MIT License
 
 ---
 
