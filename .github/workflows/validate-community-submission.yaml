@@ -4,6 +4,9 @@ on:
   issues:
     types: [opened, edited]
 
+permissions:
+  issues: write
+
 jobs:
   validate:
     if: contains(github.event.issue.labels.*.name, 'submission')
@@ -19,6 +22,13 @@ jobs:
 
       - name: Install dependencies
         run: pip install jsonschema
+
+      - name: Debug issue body
+        run: |
+          echo "=== Issue Body ==="
+          cat << 'ISSUE_BODY_EOF'
+          ${{ github.event.issue.body }}
+          ISSUE_BODY_EOF
 
       - name: Validate submission
         env:
