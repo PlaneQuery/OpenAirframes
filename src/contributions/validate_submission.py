@@ -7,6 +7,7 @@ submissions when issues are opened or edited.
 
 Usage:
     python -m src.contributions.validate_submission --issue-body "..."
+    python -m src.contributions.validate_submission --issue-body-file /path/to/body.txt
     python -m src.contributions.validate_submission --file submission.json
     echo '{"registration_number": "N12345"}' | python -m src.contributions.validate_submission --stdin
     
@@ -106,6 +107,7 @@ def main():
     parser = argparse.ArgumentParser(description="Validate community submission JSON")
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument("--issue-body", help="Issue body text containing JSON")
+    source_group.add_argument("--issue-body-file", help="File containing issue body text")
     source_group.add_argument("--file", help="JSON file to validate")
     source_group.add_argument("--stdin", action="store_true", help="Read JSON from stdin")
     
@@ -123,6 +125,20 @@ def main():
                     args.issue_number,
                     "❌ **Validation Failed**\n\nCould not extract JSON from submission. "
                     "Please ensure your JSON is in the 'Submission JSON' field wrapped in code blocks."
+                )
+            sys.exit(1)
+    elif args.issue_body_file:
+        with open(args.issue_body_file) as f:
+            issue_body = f.read()
+        json_str = extract_json_from_issue_body(issue_body)
+        if not json_str:
+            print("❌ Could not extract JSON from issue body", file=sys.stderr)
+            print(f"Issue body:\n{issue_body}", file=sys.stderr)
+            if args.issue_number:
+                add_issue_comment(
+                    args.issue_number,
+                    "❌ **Validation Failed**\n\nCould not extract JSON from submission. "
+                    "Please ensure your JSON is in the 'Submission JSON' field."
                 )
             sys.exit(1)
     elif args.file:

@@ -54,7 +54,9 @@ def extract_json_from_issue_body(body: str) -> str | None:
     """
     Extract JSON from GitHub issue body.
     
-    Looks for JSON in the 'Submission JSON' section wrapped in code blocks.
+    Looks for JSON in the 'Submission JSON' section, either:
+    - Wrapped in code blocks (```json ... ``` or ``` ... ```)
+    - Or raw JSON after the header
     
     Args:
         body: The issue body text
@@ -62,12 +64,27 @@ def extract_json_from_issue_body(body: str) -> str | None:
     Returns:
         Extracted JSON string or None if not found
     """
-    # Match JSON in "### Submission JSON" section
-    pattern = r"### Submission JSON\s*\n\s*```(?:json)?\s*\n([\s\S]*?)\n\s*```"
-    match = re.search(pattern, body)
-    
+    # Try: JSON in code blocks after "### Submission JSON"
+    pattern_codeblock = r"### Submission JSON\s*\n\s*```(?:json)?\s*\n([\s\S]*?)\n\s*```"
+    match = re.search(pattern_codeblock, body)
     if match:
         return match.group(1).strip()
+    
+    # Try: Raw JSON after "### Submission JSON" until next section or end
+    pattern_raw = r"### Submission JSON\s*\n\s*([\[{][\s\S]*?[\]}])(?=\n###|\n\n###|$)"
+    match = re.search(pattern_raw, body)
+    if match:
+        return match.group(1).strip()
+    
+    # Try: Any JSON object/array in the body (fallback)
+    pattern_any = r"([\[{][\s\S]*?[\]}])"
+    for match in re.finditer(pattern_any, body):
+        candidate = match.group(1).strip()
+        # Validate it looks like JSON
+        if candidate.startswith('{') and candidate.endswith('}'):
+            return candidate
+        if candidate.startswith('[') and candidate.endswith(']'):
+            return candidate
     
     return None
 
