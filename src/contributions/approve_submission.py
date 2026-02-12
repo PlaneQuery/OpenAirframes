@@ -54,7 +54,11 @@ def github_api_request(
     
     try:
         with urllib.request.urlopen(req) as response:
-            return json.loads(response.read())
+            response_body = response.read()
+            # DELETE requests return empty body (204 No Content)
+            if not response_body:
+                return {}
+            return json.loads(response_body)
     except urllib.error.HTTPError as e:
         error_body = e.read().decode() if e.fp else ""
         print(f"GitHub API error: {e.code} {e.reason}: {error_body}", file=sys.stderr)
