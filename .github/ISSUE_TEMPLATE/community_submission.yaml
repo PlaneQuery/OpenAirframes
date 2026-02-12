@@ -43,7 +43,7 @@ body:
     id: contributor_name
     attributes:
       label: Contributor Name
-      description: Your display name for attribution. Leave blank to use your GitHub username. Max 150 characters.
+      description: Your display name for attribution. Leave blank for no attribution. Max 150 characters.
       placeholder: "e.g., JamesBerry.com or leave blank"
     validations:
       required: false
@@ -57,28 +57,6 @@ body:
         Paste JSON here...
     validations:
       required: true
-
-  - type: dropdown
-    id: submission_type
-    attributes:
-      label: What did you submit?
-      options:
-        - Single object
-        - Multiple objects (array)
-    validations:
-      required: true
-
-  - type: checkboxes
-    id: confirmations
-    attributes:
-      label: Confirmations
-      options:
-        - label: "I confirm this is valid JSON (not JSONL) and matches the field names exactly."
-          required: true
-        - label: "I confirm `transponder_code_hex` values (if provided) are 6 hex characters."
-          required: true
-        - label: "I understand submissions are reviewed and may be rejected or require changes."
-          required: true
 
   - type: textarea
     id: notes
