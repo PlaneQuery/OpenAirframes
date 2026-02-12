@@ -277,6 +277,15 @@ jobs:
           name: community-release
           path: artifacts/community
 
+      - name: Debug artifact structure
+        run: |
+          echo "=== FAA artifacts ==="
+          find artifacts/faa -type f 2>/dev/null || echo "No files found in artifacts/faa"
+          echo "=== ADS-B artifacts ==="
+          find artifacts/adsb -type f 2>/dev/null || echo "No files found in artifacts/adsb"
+          echo "=== Community artifacts ==="
+          find artifacts/community -type f 2>/dev/null || echo "No files found in artifacts/community"
+
       - name: Prepare release metadata
         id: meta
         run: |
