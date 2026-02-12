@@ -58,7 +58,7 @@ jobs:
 
       - name: Run FAA release script
         run: |
-          python src/create_daily_planequery_aircraft_release.py
+          python src/create_daily_planequery_aircraft_faa_release.py
           ls -lah data/faa_releasable
           ls -lah data/planequery_aircraft
 
