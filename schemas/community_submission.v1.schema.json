@@ -3,7 +3,6 @@
   "title": "PlaneQuery Aircraft Community Submission (v1)",
   "type": "object",
   "additionalProperties": false,
-
   "properties": {
     "registration_number": {
       "type": "string",
@@ -17,7 +16,6 @@
       "type": "string",
       "minLength": 1
     },
-
     "contributor_uuid": {
       "type": "string",
       "format": "uuid"
@@ -28,14 +26,12 @@
       "maxLength": 150,
       "description": "Display name (may be blank)"
     },
-
     "creation_timestamp": {
       "type": "string",
       "format": "date-time",
       "description": "Set by the system when the submission is persisted/approved.",
       "readOnly": true
     },
-
     "start_date": {
       "type": "string",
       "format": "date",
@@ -48,7 +44,6 @@
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
       "description": "Optional end date for when this submission's tags are valid (ISO 8601, e.g., 2025-07-03)."
     },
-
     "tags": {
       "type": "object",
       "description": "Additional community-defined tags as key/value pairs (values may be scalar, array, or object).",
@@ -56,36 +51,71 @@
         "type": "string",
         "pattern": "^[a-z][a-z0-9_]{0,63}$"
       },
-      "additionalProperties": { "$ref": "#/$defs/tagValue" }
+      "additionalProperties": {
+        "$ref": "#/$defs/tagValue"
+      },
+      "properties": {
+        "airshows": {
+          "type": "boolean"
+        },
+        "cat_friendly": {
+          "type": "boolean"
+        },
+        "dog_friendly": {
+          "type": "boolean"
+        }
+      }
     }
   },
-
   "allOf": [
     {
       "anyOf": [
-        { "required": ["registration_number"] },
-        { "required": ["transponder_code_hex"] },
-        { "required": ["planequery_airframe_id"] }
+        {
+          "required": [
+            "registration_number"
+          ]
+        },
+        {
+          "required": [
+            "transponder_code_hex"
+          ]
+        },
+        {
+          "required": [
+            "planequery_airframe_id"
+          ]
+        }
       ]
     }
   ],
-
   "$defs": {
     "tagScalar": {
-      "type": ["string", "number", "integer", "boolean", "null"]
+      "type": [
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "null"
+      ]
     },
     "tagValue": {
       "anyOf": [
-        { "$ref": "#/$defs/tagScalar" },
+        {
+          "$ref": "#/$defs/tagScalar"
+        },
         {
           "type": "array",
           "maxItems": 50,
-          "items": { "$ref": "#/$defs/tagScalar" }
+          "items": {
+            "$ref": "#/$defs/tagScalar"
+          }
         },
         {
           "type": "object",
           "maxProperties": 50,
-          "additionalProperties": { "$ref": "#/$defs/tagScalar" }
+          "additionalProperties": {
+            "$ref": "#/$defs/tagScalar"
+          }
         }
       ]
     }
