@@ -24,6 +24,7 @@ import urllib.request
 import urllib.error
 
 from .schema import extract_json_from_issue_body, parse_and_validate, load_schema
+from .read_community_data import read_all_submissions, build_tag_type_registry, get_python_type_name
 
 
 def github_api_request(method: str, endpoint: str, data: dict | None = None) -> dict:
@@ -66,6 +67,40 @@ def remove_issue_label(issue_number: int, label: str) -> None:
         pass  # Label might not exist
 
 
+def validate_tag_consistency(data: dict | list, tag_registry: dict[str, str]) -> list[str]:
+    """
+    Check that tag types in new submissions match existing tag types.
+    
+    Args:
+        data: Single submission dict or list of submissions
+        tag_registry: Dict mapping tag name to expected type
+        
+    Returns:
+        List of error messages. Empty list means validation passed.
+    """
+    errors = []
+    submissions = data if isinstance(data, list) else [data]
+    
+    for i, submission in enumerate(submissions):
+        prefix = f"[{i}] " if len(submissions) > 1 else ""
+        tags = submission.get("tags", {})
+        
+        if not isinstance(tags, dict):
+            continue
+        
+        for key, value in tags.items():
+            actual_type = get_python_type_name(value)
+            
+            if key in tag_registry:
+                expected_type = tag_registry[key]
+                if actual_type != expected_type:
+                    errors.append(
+                        f"{prefix}tags.{key}: expected type '{expected_type}', got '{actual_type}'"
+                    )
+    
+    return errors
+
+
 def validate_and_report(json_str: str, issue_number: int | None = None) -> bool:
     """
     Validate JSON and optionally report to GitHub issue.
@@ -90,6 +125,33 @@ def validate_and_report(json_str: str, issue_number: int | None = None) -> bool:
             remove_issue_label(issue_number, "validated")
         
         return False
+    
+    # Check tag type consistency against existing submissions
+    if data is not None:
+        try:
+            existing_submissions = read_all_submissions()
+            tag_registry = build_tag_type_registry(existing_submissions)
+            tag_errors = validate_tag_consistency(data, tag_registry)
+            
+            if tag_errors:
+                error_list = "\n".join(f"- {e}" for e in tag_errors)
+                message = (
+                    f"❌ **Tag Type Mismatch**\n\n"
+                    f"Your submission uses tags with types that don't match existing submissions:\n\n"
+                    f"{error_list}\n\n"
+                    f"Please use the same type as existing tags, or use a different tag name."
+                )
+                
+                print(message, file=sys.stderr)
+                
+                if issue_number:
+                    add_issue_comment(issue_number, message)
+                    remove_issue_label(issue_number, "validated")
+                
+                return False
+        except Exception as e:
+            # Don't fail validation if we can't read existing submissions
+            print(f"Warning: Could not check tag consistency: {e}", file=sys.stderr)
     
     count = len(data) if isinstance(data, list) else 1
     message = f"✅ **Validation Passed**\n\n{count} submission(s) validated successfully against the schema.\n\nA maintainer can approve this submission by adding the `approved` label."

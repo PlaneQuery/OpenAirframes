@@ -30,7 +30,8 @@ def read_all_submissions(community_dir: Path | None = None) -> list[dict]:
     
     all_submissions = []
     
-    for json_file in sorted(community_dir.glob("*.json")):
+    # Search both root directory and date subdirectories (e.g., 2026-02-12/)
+    for json_file in sorted(community_dir.glob("**/*.json")):
         try:
             with open(json_file) as f:
                 data = json.load(f)
@@ -48,6 +49,52 @@ def read_all_submissions(community_dir: Path | None = None) -> list[dict]:
             print(f"Warning: Failed to read {json_file}: {e}", file=sys.stderr)
     
     return all_submissions
+
+
+def get_python_type_name(value) -> str:
+    """Get a normalized type name for a value."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return type(value).__name__
+
+
+def build_tag_type_registry(submissions: list[dict]) -> dict[str, str]:
+    """
+    Build a registry of tag names to their expected types from existing submissions.
+    
+    Args:
+        submissions: List of existing submission dictionaries
+        
+    Returns:
+        Dict mapping tag name to expected type (e.g., {"internet": "string", "year_built": "integer"})
+    """
+    tag_types = {}
+    
+    for submission in submissions:
+        tags = submission.get("tags", {})
+        if not isinstance(tags, dict):
+            continue
+        
+        for key, value in tags.items():
+            inferred_type = get_python_type_name(value)
+            
+            if key not in tag_types:
+                tag_types[key] = inferred_type
+            # If there's a conflict, keep the first type (it's already in use)
+    
+    return tag_types
 
 
 def group_by_identifier(submissions: list[dict]) -> dict[str, list[dict]]:

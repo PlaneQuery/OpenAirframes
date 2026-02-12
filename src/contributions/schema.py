@@ -10,12 +10,59 @@ except ImportError:
     Draft202012Validator = None
 
 
-SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "community_submission.v1.schema.json"
+SCHEMAS_DIR = Path(__file__).parent.parent.parent / "schemas"
+
+# For backwards compatibility
+SCHEMA_PATH = SCHEMAS_DIR / "community_submission.v1.schema.json"
 
 
-def load_schema() -> dict:
-    """Load the community submission schema."""
-    with open(SCHEMA_PATH) as f:
+def get_latest_schema_version() -> int:
+    """
+    Find the latest schema version number.
+    
+    Returns:
+        Latest version number (e.g., 1, 2, 3)
+    """
+    import re
+    pattern = re.compile(r"community_submission\.v(\d+)\.schema\.json$")
+    max_version = 0
+    
+    for path in SCHEMAS_DIR.glob("community_submission.v*.schema.json"):
+        match = pattern.search(path.name)
+        if match:
+            version = int(match.group(1))
+            max_version = max(max_version, version)
+    
+    return max_version
+
+
+def get_schema_path(version: int | None = None) -> Path:
+    """
+    Get path to a specific schema version, or latest if version is None.
+    
+    Args:
+        version: Schema version number, or None for latest
+        
+    Returns:
+        Path to schema file
+    """
+    if version is None:
+        version = get_latest_schema_version()
+    return SCHEMAS_DIR / f"community_submission.v{version}.schema.json"
+
+
+def load_schema(version: int | None = None) -> dict:
+    """
+    Load the community submission schema.
+    
+    Args:
+        version: Schema version to load. If None, loads the latest version.
+        
+    Returns:
+        Schema dict
+    """
+    schema_path = get_schema_path(version)
+    with open(schema_path) as f:
         return json.load(f)
 
 

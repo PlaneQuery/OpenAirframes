@@ -21,12 +21,14 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 
-from .schema import extract_json_from_issue_body, extract_contributor_name_from_issue_body, parse_and_validate
+from .schema import extract_json_from_issue_body, extract_contributor_name_from_issue_body, parse_and_validate, get_latest_schema_version, load_schema
 from .contributor import (
     generate_contributor_uuid,
     generate_submission_filename,
     compute_content_hash,
 )
+from .update_schema import generate_new_schema, check_for_new_tags, get_existing_tag_definitions
+from .read_community_data import build_tag_type_registry
 
 
 def github_api_request(
@@ -148,13 +150,13 @@ def process_submission(
         return False
     
     data, errors = parse_and_validate(json_str)
-    if errors:
-        error_list = "\n".join(f"- {e}" for e in errors)
+    if errors or data is None:
+        error_list = "\n".join(f"- {e}" for e in errors) if errors else "Unknown error"
         add_issue_comment(issue_number, f"❌ **Validation Failed**\n\n{error_list}")
         return False
     
     # Normalize to list
-    submissions = data if isinstance(data, list) else [data]
+    submissions: list[dict] = data if isinstance(data, list) else [data]
     
     # Generate contributor UUID from GitHub ID
     contributor_uuid = generate_contributor_uuid(author_id)
@@ -188,14 +190,56 @@ def process_submission(
     commit_message = f"Add community submission from @{author_username} (closes #{issue_number})"
     create_or_update_file(file_path, content_json, commit_message, branch_name)
     
+    # Update schema with any new tags (creates new version if needed)
+    schema_updated = False
+    new_version = None
+    new_tags = []
+    try:
+        # Build tag registry from new submissions
+        tag_registry = build_tag_type_registry(submissions)
+        
+        # Get current schema and merge existing tags
+        current_version = get_latest_schema_version()
+        current_schema = load_schema(current_version)
+        existing_tags = get_existing_tag_definitions(current_schema)
+        
+        # Merge existing tags into registry
+        for tag_name, tag_def in existing_tags.items():
+            if tag_name not in tag_registry:
+                tag_type = tag_def.get("type", "string")
+                tag_registry[tag_name] = tag_type
+        
+        # Check for new tags
+        new_tags = check_for_new_tags(tag_registry, current_schema)
+        
+        if new_tags:
+            # Generate new schema version
+            new_version = current_version + 1
+            new_schema = generate_new_schema(current_schema, tag_registry, new_version)
+            schema_json = json.dumps(new_schema, indent=2) + "\n"
+            
+            create_or_update_file(
+                f"schemas/community_submission.v{new_version}.schema.json",
+                schema_json,
+                f"Create schema v{new_version} with new tags: {', '.join(new_tags)}",
+                branch_name
+            )
+            schema_updated = True
+    except Exception as e:
+        print(f"Warning: Could not update schema: {e}", file=sys.stderr)
+    
     # Create PR
+    schema_note = ""
+    if schema_updated:
+        schema_note = f"\n**Schema Updated:** Created v{new_version} with new tags: `{', '.join(new_tags)}`\n"
+    
     pr_body = f"""## Community Submission
 
 Adds {len(submissions)} submission(s) from @{author_username}.
 
 **File:** `{file_path}`
 **Contributor UUID:** `{contributor_uuid}`
-
+{schema_note}
 Closes #{issue_number}
 
 ---
