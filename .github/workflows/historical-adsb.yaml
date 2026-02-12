@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       end_date:
-        description: 'End date (YYYY-MM-DD, inclusive)'
+        description: 'End date (YYYY-MM-DD, exclusive)'
         required: true
         type: string
       chunk_days:
@@ -41,9 +41,9 @@ jobs:
           INPUT_CHUNK_DAYS: ${{ inputs.chunk_days }}
         run: python src/adsb/historical_generate_matrix.py
 
-  process-chunk:
+  adsb-extract:
     needs: generate-matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
         chunk: ${{ fromJson(needs.generate-matrix.outputs.chunks) }}
@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install polars pyarrow orjson zstandard
+          pip install -r requirements.txt
 
       - name: Free disk space
         run: |
@@ -70,24 +70,37 @@ jobs:
           sudo rm -rf /usr/local/share/boost
           df -h
 
-      - name: Process date range
+      - name: Download and extract ADS-B data
         env:
-          CHUNK_START_DATE: ${{ matrix.chunk.start_date }}
-          CHUNK_END_DATE: ${{ matrix.chunk.end_date }}
-        working-directory: src/adsb
-        run: python historical_process_chunk.py
+          START_DATE: ${{ matrix.chunk.start_date }}
+          END_DATE: ${{ matrix.chunk.end_date }}
+        run: |
+          python -m src.adsb.download_and_list_icaos --start-date "$START_DATE" --end-date "$END_DATE"
+          ls -lah data/output/
 
-      - name: Upload chunk artifact
+      - name: Create tar of extracted data
+        run: |
+          cd data/output
+          tar -cf extracted_data.tar *-planes-readsb-prod-0.tar_0 icao_manifest_*.txt 2>/dev/null || echo "Some files may not exist"
+          ls -lah extracted_data.tar || echo "No tar created"
+
+      - name: Upload extracted data
         uses: actions/upload-artifact@v4
         with:
-          name: chunk-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}
-          path: data/chunks/*.csv
+          name: adsb-extracted-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}
+          path: data/output/extracted_data.tar
           retention-days: 1
-          if-no-files-found: ignore
+          compression-level: 0
+          if-no-files-found: warn
 
-  combine-chunks:
-    needs: [generate-matrix, process-chunk]
-    runs-on: ubuntu-latest
+  adsb-map:
+    needs: [generate-matrix, adsb-extract]
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk: ${{ fromJson(needs.generate-matrix.outputs.chunks) }}
+        icao_chunk: [0, 1, 2, 3]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,25 +113,93 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install polars
+          pip install -r requirements.txt
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          df -h
+
+      - name: Download extracted data
+        uses: actions/download-artifact@v4
+        with:
+          name: adsb-extracted-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}
+          path: data/output/
+        continue-on-error: true
+
+      - name: Extract tar
+        id: extract
+        run: |
+          cd data/output
+          if [ -f extracted_data.tar ]; then
+            tar -xf extracted_data.tar
+            rm extracted_data.tar
+            echo "has_data=true" >> "$GITHUB_OUTPUT"
+            echo "=== Contents of data/output ==="
+            ls -lah
+          else
+            echo "No extracted_data.tar found"
+            echo "has_data=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Process ICAO chunk
+        if: steps.extract.outputs.has_data == 'true'
+        env:
+          START_DATE: ${{ matrix.chunk.start_date }}
+          END_DATE: ${{ matrix.chunk.end_date }}
+        run: |
+          python -m src.adsb.process_icao_chunk --chunk-id ${{ matrix.icao_chunk }} --total-chunks 4 --start-date "$START_DATE" --end-date "$END_DATE"
+          ls -lah data/output/adsb_chunks/ || echo "No chunks created"
+
+      - name: Upload chunk artifacts
+        if: steps.extract.outputs.has_data == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: adsb-map-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}-chunk-${{ matrix.icao_chunk }}
+          path: data/output/adsb_chunks/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  adsb-reduce:
+    needs: [generate-matrix, adsb-map]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Download all chunk artifacts
         uses: actions/download-artifact@v4
         with:
-          path: chunks
-          pattern: chunk-*
+          pattern: adsb-map-*
+          path: data/output/adsb_chunks/
           merge-multiple: true
 
-      - name: List downloaded chunks
+      - name: Debug downloaded files
         run: |
-          echo "Downloaded chunks:"
-          find chunks -name "*.csv" -type f 2>/dev/null || echo "No CSV files found"
+          echo "=== Listing data/output/adsb_chunks/ ==="
+          find data/output/adsb_chunks/ -type f 2>/dev/null | head -50 || echo "No files found"
+          echo "=== Looking for parquet files ==="
+          find . -name "*.parquet" 2>/dev/null | head -20 || echo "No parquet files found"
 
-      - name: Combine chunks
+      - name: Combine chunks to CSV
         env:
-          GLOBAL_START_DATE: ${{ needs.generate-matrix.outputs.global_start }}
-          GLOBAL_END_DATE: ${{ needs.generate-matrix.outputs.global_end }}
-        run: python src/adsb/historical_combine_chunks.py
+          START_DATE: ${{ needs.generate-matrix.outputs.global_start }}
+          END_DATE: ${{ needs.generate-matrix.outputs.global_end }}
+        run: |
+          python -m src.adsb.combine_chunks_to_csv --chunks-dir data/output/adsb_chunks --start-date "$START_DATE" --end-date "$END_DATE" --skip-base
+          ls -lah data/planequery_aircraft/
 
       - name: Upload final artifact
         uses: actions/upload-artifact@v4

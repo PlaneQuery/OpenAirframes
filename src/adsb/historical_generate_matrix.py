@@ -11,12 +11,12 @@ def generate_chunks(start_date: str, end_date: str, chunk_days: int) -> list[dic
     """Generate date chunks for parallel processing.
     
     Args:
-        start_date: Start date in YYYY-MM-DD format
-        end_date: End date in YYYY-MM-DD format
+        start_date: Start date in YYYY-MM-DD format (inclusive)
+        end_date: End date in YYYY-MM-DD format (exclusive)
         chunk_days: Number of days per chunk
         
     Returns:
-        List of chunk dictionaries with start_date and end_date
+        List of chunk dictionaries with start_date and end_date (both inclusive within chunk)
     """
     start = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.strptime(end_date, "%Y-%m-%d")
@@ -24,8 +24,10 @@ def generate_chunks(start_date: str, end_date: str, chunk_days: int) -> list[dic
     chunks = []
     current = start
     
-    while current <= end:
-        chunk_end = min(current + timedelta(days=chunk_days - 1), end)
+    # end_date is exclusive, so we process up to but not including it
+    while current < end:
+        # chunk_end is inclusive, so subtract 1 from the next chunk start
+        chunk_end = min(current + timedelta(days=chunk_days - 1), end - timedelta(days=1))
         chunks.append({
             "start_date": current.strftime("%Y-%m-%d"),
             "end_date": chunk_end.strftime("%Y-%m-%d"),

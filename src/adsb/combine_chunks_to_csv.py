@@ -2,10 +2,16 @@
 Combines chunk parquet files and compresses to final aircraft CSV.
 This is the reduce phase of the map-reduce pipeline.
 
+Supports both single-day (daily) and multi-day (historical) modes.
+
 Memory-efficient: processes each chunk separately, compresses, then combines.
 
 Usage:
+    # Daily mode
     python -m src.adsb.combine_chunks_to_csv --chunks-dir data/output/adsb_chunks
+    
+    # Historical mode
+    python -m src.adsb.combine_chunks_to_csv --chunks-dir data/output/adsb_chunks --start-date 2024-01-01 --end-date 2024-01-07 --skip-base
 """
 import gc
 import os
@@ -117,9 +123,9 @@ def download_and_merge_base_release(compressed_df: pl.DataFrame) -> pl.DataFrame
         return compressed_df
 
 
-def cleanup_chunks(date_str: str, chunks_dir: str):
+def cleanup_chunks(output_id: str, chunks_dir: str):
     """Delete chunk parquet files after successful merge."""
-    pattern = os.path.join(chunks_dir, f"chunk_*_{date_str}.parquet")
+    pattern = os.path.join(chunks_dir, f"chunk_*_{output_id}.parquet")
     chunk_files = glob.glob(pattern)
     for f in chunk_files:
         try:
@@ -129,32 +135,56 @@ def cleanup_chunks(date_str: str, chunks_dir: str):
             print(f"Failed to delete {f}: {e}")
 
 
+def find_chunk_files(chunks_dir: str, output_id: str) -> list[str]:
+    """Find chunk parquet files matching the output ID."""
+    pattern = os.path.join(chunks_dir, f"chunk_*_{output_id}.parquet")
+    chunk_files = sorted(glob.glob(pattern))
+    
+    if not chunk_files:
+        # Try recursive search for historical mode with merged artifacts
+        pattern = os.path.join(chunks_dir, "**", "*.parquet")
+        chunk_files = sorted(glob.glob(pattern, recursive=True))
+    
+    return chunk_files
+
+
 def main():
     parser = argparse.ArgumentParser(description="Combine chunk parquets to final CSV")
-    parser.add_argument("--date", type=str, help="Date in YYYY-MM-DD format (default: yesterday)")
+    parser.add_argument("--date", type=str, help="Single date in YYYY-MM-DD format (default: yesterday)")
+    parser.add_argument("--start-date", type=str, help="Start date for range (YYYY-MM-DD)")
+    parser.add_argument("--end-date", type=str, help="End date for range (YYYY-MM-DD)")
     parser.add_argument("--chunks-dir", type=str, default=DEFAULT_CHUNK_DIR, help="Directory containing chunk parquet files")
     parser.add_argument("--skip-base", action="store_true", help="Skip downloading and merging base release")
     parser.add_argument("--keep-chunks", action="store_true", help="Keep chunk files after merging")
     args = parser.parse_args()
     
-    if args.date:
-        target_day = datetime.strptime(args.date, "%Y-%m-%d")
+    # Determine output ID and filename based on mode
+    if args.start_date and args.end_date:
+        # Historical mode
+        output_id = f"{args.start_date}_{args.end_date}"
+        output_filename = f"planequery_aircraft_adsb_{args.start_date}_{args.end_date}.csv"
+        print(f"Combining chunks for date range: {args.start_date} to {args.end_date}")
     else:
-        target_day = get_target_day()
+        # Daily mode
+        if args.date:
+            target_day = datetime.strptime(args.date, "%Y-%m-%d")
+        else:
+            target_day = get_target_day()
+        
+        date_str = target_day.strftime("%Y-%m-%d")
+        output_id = date_str
+        output_filename = f"planequery_aircraft_adsb_{date_str}.csv"
+        print(f"Combining chunks for {date_str}")
     
-    date_str = target_day.strftime("%Y-%m-%d")
     chunks_dir = args.chunks_dir
-    
-    print(f"Combining chunks for {date_str}")
     print(f"Chunks directory: {chunks_dir}")
     print(f"Resource usage at start: {get_resource_usage()}")
     
     # Find chunk files
-    pattern = os.path.join(chunks_dir, f"chunk_*_{date_str}.parquet")
-    chunk_files = sorted(glob.glob(pattern))
+    chunk_files = find_chunk_files(chunks_dir, output_id)
     
     if not chunk_files:
-        print(f"No chunk files found matching: {pattern}")
+        print(f"No chunk files found in: {chunks_dir}")
         sys.exit(1)
     
     print(f"Found {len(chunk_files)} chunk files")
@@ -174,7 +204,7 @@ def main():
     gc.collect()
     print(f"After combining: {get_resource_usage()}")
     
-    # Merge with base release
+    # Merge with base release (unless skipped)
     if not args.skip_base:
         combined = download_and_merge_base_release(combined)
     
@@ -190,13 +220,13 @@ def main():
         combined = combined.sort('time')
     
     # Write final CSV
-    output_path = os.path.join(FINAL_OUTPUT_DIR, f"planequery_aircraft_adsb_{date_str}.csv")
+    output_path = os.path.join(FINAL_OUTPUT_DIR, output_filename)
     combined.write_csv(output_path)
     print(f"Wrote {len(combined)} records to {output_path}")
     
     # Cleanup
     if not args.keep_chunks:
-        cleanup_chunks(date_str, chunks_dir)
+        cleanup_chunks(output_id, chunks_dir)
     
     print(f"Done! | {get_resource_usage()}")
 
