@@ -65,9 +65,11 @@ body:
     id: submission_json
     attributes:
       label: Submission JSON
-      description: Paste either one JSON object or an array of JSON objects. Must be valid JSON. Do not include contributor_name or contributor_uuid in your JSON.
+      description: |
+        Paste JSON directly, OR drag-and-drop a .json file here.
+        Must be valid JSON. Do not include contributor_name or contributor_uuid.
       placeholder: |
-        Paste JSON here...
+        Paste JSON here, or drag-and-drop a .json file...
     validations:
       required: true
 

@@ -97,11 +97,34 @@ def validate_submission(data: dict | list, schema: dict | None = None) -> list[s
     return errors
 
 
+def download_github_attachment(url: str) -> str | None:
+    """
+    Download content from a GitHub attachment URL.
+    
+    Args:
+        url: GitHub attachment URL (e.g., https://github.com/user-attachments/files/...)
+        
+    Returns:
+        File content as string, or None if download failed
+    """
+    import urllib.request
+    import urllib.error
+    
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "PlaneQuery-Bot"})
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return response.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, UnicodeDecodeError) as e:
+        print(f"Failed to download attachment from {url}: {e}")
+        return None
+
+
 def extract_json_from_issue_body(body: str) -> str | None:
     """
     Extract JSON from GitHub issue body.
     
     Looks for JSON in the 'Submission JSON' section, either:
+    - A GitHub file attachment URL (drag-and-drop .json file)
     - Wrapped in code blocks (```json ... ``` or ``` ... ```)
     - Or raw JSON after the header
     
@@ -111,6 +134,27 @@ def extract_json_from_issue_body(body: str) -> str | None:
     Returns:
         Extracted JSON string or None if not found
     """
+    # Try: GitHub attachment URL in the Submission JSON section
+    # Format: [filename.json](https://github.com/user-attachments/files/...)
+    # Or just the raw URL
+    pattern_attachment = r"### Submission JSON\s*\n[\s\S]*?(https://github\.com/(?:user-attachments/files|.*?/files)/[^\s\)\]]+\.json)"
+    match = re.search(pattern_attachment, body)
+    if match:
+        url = match.group(1)
+        content = download_github_attachment(url)
+        if content:
+            return content.strip()
+    
+    # Also check for GitHub user-attachments URL anywhere in submission section
+    pattern_attachment_alt = r"\[.*?\.json\]\((https://github\.com/[^\)]+)\)"
+    match = re.search(pattern_attachment_alt, body)
+    if match:
+        url = match.group(1)
+        if ".json" in url or "user-attachments" in url:
+            content = download_github_attachment(url)
+            if content:
+                return content.strip()
+    
     # Try: JSON in code blocks after "### Submission JSON"
     pattern_codeblock = r"### Submission JSON\s*\n\s*```(?:json)?\s*\n([\s\S]*?)\n\s*```"
     match = re.search(pattern_codeblock, body)
