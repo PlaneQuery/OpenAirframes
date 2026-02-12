@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PlaneQuery Aircraft Community Submission (v2)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "registration_number": {
+      "type": "string",
+      "minLength": 1
+    },
+    "transponder_code_hex": {
+      "type": "string",
+      "pattern": "^[0-9A-F]{6}$"
+    },
+    "planequery_airframe_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contributor_uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "contributor_name": {
+      "type": "string",
+      "minLength": 0,
+      "maxLength": 150,
+      "description": "Display name (may be blank)"
+    },
+    "creation_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Set by the system when the submission is persisted/approved.",
+      "readOnly": true
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Optional start date for when this submission's tags are valid (ISO 8601, e.g., 2025-05-01)."
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Optional end date for when this submission's tags are valid (ISO 8601, e.g., 2025-07-03)."
+    },
+    "tags": {
+      "type": "object",
+      "description": "Community-defined tags. New tags can be added, but must use consistent types.",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}$"
+      },
+      "properties": {
+        "owner": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/tagValue"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "anyOf": [
+        {
+          "required": [
+            "registration_number"
+          ]
+        },
+        {
+          "required": [
+            "transponder_code_hex"
+          ]
+        },
+        {
+          "required": [
+            "planequery_airframe_id"
+          ]
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "tagScalar": {
+      "type": [
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "null"
+      ]
+    },
+    "tagValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/tagScalar"
+        },
+        {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/tagScalar"
+          }
+        },
+        {
+          "type": "object",
+          "maxProperties": 50,
+          "additionalProperties": {
+            "$ref": "#/$defs/tagScalar"
+          }
+        }
+      ]
+    }
+  }
+}
