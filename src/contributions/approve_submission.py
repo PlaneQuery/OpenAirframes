@@ -159,10 +159,8 @@ def process_submission(
     # Generate contributor UUID from GitHub ID
     contributor_uuid = generate_contributor_uuid(author_id)
     
-    # Extract contributor name from issue form (or default to GitHub username)
+    # Extract contributor name from issue form (None means user opted out of attribution)
     contributor_name = extract_contributor_name_from_issue_body(issue_body)
-    if not contributor_name:
-        contributor_name = f"@{author_username}"
     
     # Add metadata to each submission
     now = datetime.now(timezone.utc)
@@ -171,7 +169,8 @@ def process_submission(
     
     for submission in submissions:
         submission["contributor_uuid"] = contributor_uuid
-        submission["contributor_name"] = contributor_name
+        if contributor_name:
+            submission["contributor_name"] = contributor_name
         submission["creation_timestamp"] = timestamp_str
     
     # Generate unique filename
