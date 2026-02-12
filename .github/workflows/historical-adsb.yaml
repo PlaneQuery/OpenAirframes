@@ -1,0 +1,128 @@
+name: Historical ADS-B Processing
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Start date (YYYY-MM-DD, inclusive)'
+        required: true
+        type: string
+      end_date:
+        description: 'End date (YYYY-MM-DD, inclusive)'
+        required: true
+        type: string
+      chunk_days:
+        description: 'Days per job chunk (default: 7)'
+        required: false
+        type: number
+        default: 7
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      chunks: ${{ steps.generate.outputs.chunks }}
+      global_start: ${{ inputs.start_date }}
+      global_end: ${{ inputs.end_date }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate date chunks
+        id: generate
+        env:
+          INPUT_START_DATE: ${{ inputs.start_date }}
+          INPUT_END_DATE: ${{ inputs.end_date }}
+          INPUT_CHUNK_DAYS: ${{ inputs.chunk_days }}
+        run: python src/adsb/historical_generate_matrix.py
+
+  process-chunk:
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chunk: ${{ fromJson(needs.generate-matrix.outputs.chunks) }}
+      max-parallel: 3
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install polars pyarrow orjson zstandard
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          df -h
+
+      - name: Process date range
+        env:
+          CHUNK_START_DATE: ${{ matrix.chunk.start_date }}
+          CHUNK_END_DATE: ${{ matrix.chunk.end_date }}
+        working-directory: src/adsb
+        run: python historical_process_chunk.py
+
+      - name: Upload chunk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chunk-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}
+          path: data/chunks/*.csv
+          retention-days: 1
+          if-no-files-found: ignore
+
+  combine-chunks:
+    needs: [generate-matrix, process-chunk]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install polars
+
+      - name: Download all chunk artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: chunks
+          pattern: chunk-*
+          merge-multiple: true
+
+      - name: List downloaded chunks
+        run: |
+          echo "Downloaded chunks:"
+          find chunks -name "*.csv" -type f 2>/dev/null || echo "No CSV files found"
+
+      - name: Combine chunks
+        env:
+          GLOBAL_START_DATE: ${{ needs.generate-matrix.outputs.global_start }}
+          GLOBAL_END_DATE: ${{ needs.generate-matrix.outputs.global_end }}
+        run: python src/adsb/historical_combine_chunks.py
+
+      - name: Upload final artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: planequery_aircraft_adsb-${{ needs.generate-matrix.outputs.global_start }}-${{ needs.generate-matrix.outputs.global_end }}
+          path: data/planequery_aircraft/*.csv
+          retention-days: 30
