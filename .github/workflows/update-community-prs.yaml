@@ -84,14 +84,7 @@ jobs:
                 fi
               else
                 echo "  Merge conflict in PR #$pr_number, adding comment"
-                gh pr comment "$pr_number" --body "⚠️ **Merge Conflict**
-
-Another community submission was merged and this PR has conflicts.
-
-A maintainer may need to:
-1. Close this PR
-2. Remove the \`approved\` label from the original issue
-3. Re-add the \`approved\` label to regenerate the PR"
+                gh pr comment "$pr_number" --body $'⚠️ **Merge Conflict**\n\nAnother community submission was merged and this PR has conflicts.\n\nA maintainer may need to:\n1. Close this PR\n2. Remove the `approved` label from the original issue\n3. Re-add the `approved` label to regenerate the PR'
                 git merge --abort
               fi
             fi
