@@ -21,13 +21,13 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 
-from .schema import extract_json_from_issue_body, extract_contributor_name_from_issue_body, parse_and_validate, get_latest_schema_version, load_schema
+from .schema import extract_json_from_issue_body, extract_contributor_name_from_issue_body, parse_and_validate, load_schema, SCHEMAS_DIR
 from .contributor import (
     generate_contributor_uuid,
     generate_submission_filename,
     compute_content_hash,
 )
-from .update_schema import generate_new_schema, check_for_new_tags, get_existing_tag_definitions
+from .update_schema import generate_updated_schema, check_for_new_tags, get_existing_tag_definitions
 from .read_community_data import build_tag_type_registry
 
 
@@ -190,17 +190,15 @@ def process_submission(
     commit_message = f"Add community submission from @{author_username} (closes #{issue_number})"
     create_or_update_file(file_path, content_json, commit_message, branch_name)
     
-    # Update schema with any new tags (creates new version if needed)
+    # Update schema with any new tags (modifies v1 in place)
     schema_updated = False
-    new_version = None
     new_tags = []
     try:
         # Build tag registry from new submissions
         tag_registry = build_tag_type_registry(submissions)
         
         # Get current schema and merge existing tags
-        current_version = get_latest_schema_version()
-        current_schema = load_schema(current_version)
+        current_schema = load_schema()
         existing_tags = get_existing_tag_definitions(current_schema)
         
         # Merge existing tags into registry
@@ -213,15 +211,14 @@ def process_submission(
         new_tags = check_for_new_tags(tag_registry, current_schema)
         
         if new_tags:
-            # Generate new schema version
-            new_version = current_version + 1
-            new_schema = generate_new_schema(current_schema, tag_registry, new_version)
-            schema_json = json.dumps(new_schema, indent=2) + "\n"
+            # Generate updated schema
+            updated_schema = generate_updated_schema(current_schema, tag_registry)
+            schema_json = json.dumps(updated_schema, indent=2) + "\n"
             
             create_or_update_file(
-                f"schemas/community_submission.v{new_version}.schema.json",
+                "schemas/community_submission.v1.schema.json",
                 schema_json,
-                f"Create schema v{new_version} with new tags: {', '.join(new_tags)}",
+                f"Update schema with new tags: {', '.join(new_tags)}",
                 branch_name
             )
             schema_updated = True
@@ -231,7 +228,7 @@ def process_submission(
     # Create PR
     schema_note = ""
     if schema_updated:
-        schema_note = f"\n**Schema Updated:** Created v{new_version} with new tags: `{', '.join(new_tags)}`\n"
+        schema_note = f"\n**Schema Updated:** Added new tags: `{', '.join(new_tags)}`\n"
     
     pr_body = f"""## Community Submission
 

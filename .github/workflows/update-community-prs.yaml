@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'community/**'
-      - 'schemas/community_submission.*.schema.json'
+      - 'schemas/community_submission.v1.schema.json'
 
 permissions:
   contents: write
@@ -29,18 +29,9 @@ jobs:
       - name: Install dependencies
         run: pip install jsonschema
 
-      - name: Get current schema version
-        id: schema
-        run: |
-          # Find the latest schema version on main
-          latest=$(ls schemas/community_submission.v*.schema.json 2>/dev/null | sed 's/.*\.v\([0-9]*\)\.schema\.json/\1/' | sort -n | tail -1)
-          echo "latest_version=${latest:-1}" >> "$GITHUB_OUTPUT"
-          echo "Latest schema version: ${latest:-1}"
-
       - name: Find and update open community PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LATEST_SCHEMA_VERSION: ${{ steps.schema.outputs.latest_version }}
         run: |
           # Get list of open community PRs
           prs=$(gh pr list --label community --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
@@ -57,35 +48,28 @@ jobs:
             git fetch origin "$branch_name"
             git checkout "$branch_name"
             
-            # Check if this PR has a schema file that needs updating
-            pr_schema=$(ls schemas/community_submission.v*.schema.json 2>/dev/null | sed 's/.*\.v\([0-9]*\)\.schema\.json/\1/' | sort -n | tail -1)
+            # Merge main into PR branch
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
             
-            if [ "$pr_schema" -le "$LATEST_SCHEMA_VERSION" ] 2>/dev/null; then
-              echo "  PR schema version ($pr_schema) <= main version ($LATEST_SCHEMA_VERSION)"
+            if git merge origin/main -m "Merge main to update schema"; then
+              # Regenerate schema for this PR's submission (adds any new tags)
+              python -m src.contributions.regenerate_pr_schema || true
               
-              # Merge main into PR branch
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
-              
-              if git merge origin/main -m "Merge main to update schema baseline"; then
-                # Regenerate schema for this PR's submission
-                python -m src.contributions.regenerate_pr_schema || true
-                
-                # If there are changes, commit and push
-                if [ -n "$(git status --porcelain schemas/)" ]; then
-                  new_version=$((LATEST_SCHEMA_VERSION + 1))
-                  git add schemas/
-                  git commit -m "Update schema to v${new_version} (rebased on main)"
-                  git push origin "$branch_name"
-                  echo "  Updated PR #$pr_number with new schema"
-                else
-                  git push origin "$branch_name"
-                  echo "  Merged main into PR #$pr_number"
-                fi
+              # If there are changes, commit and push
+              if [ -n "$(git status --porcelain schemas/)" ]; then
+                git add schemas/
+                git commit -m "Update schema with new tags"
+                git push origin "$branch_name"
+                echo "  Updated PR #$pr_number with schema changes"
               else
-                echo "  Merge conflict in PR #$pr_number, adding comment"
-                gh pr comment "$pr_number" --body $'⚠️ **Merge Conflict**\n\nAnother community submission was merged and this PR has conflicts.\n\nA maintainer may need to:\n1. Close this PR\n2. Remove the `approved` label from the original issue\n3. Re-add the `approved` label to regenerate the PR'
-                git merge --abort
+                git push origin "$branch_name"
+                echo "  Merged main into PR #$pr_number"
+              fi
+            else
+              echo "  Merge conflict in PR #$pr_number, adding comment"
+              gh pr comment "$pr_number" --body $'⚠️ **Merge Conflict**\n\nAnother community submission was merged and this PR has conflicts.\n\nA maintainer may need to:\n1. Close this PR\n2. Remove the `approved` label from the original issue\n3. Re-add the `approved` label to regenerate the PR'
+              git merge --abort
               fi
             fi
             

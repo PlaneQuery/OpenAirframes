@@ -40,22 +40,18 @@ def type_name_to_json_schema(type_name: str) -> dict:
     return type_map.get(type_name, {"$ref": "#/$defs/tagValue"})
 
 
-def generate_new_schema(base_schema: dict, tag_registry: dict[str, str], new_version: int) -> dict:
+def generate_updated_schema(base_schema: dict, tag_registry: dict[str, str]) -> dict:
     """
-    Generate a new schema version with explicit tag definitions.
+    Generate an updated schema with explicit tag definitions.
     
     Args:
-        base_schema: The current schema to base the new one on
+        base_schema: The current schema to update
         tag_registry: Dict mapping tag name to type name
-        new_version: The new version number
         
     Returns:
-        Complete new schema dict
+        Updated schema dict
     """
     schema = json.loads(json.dumps(base_schema))  # Deep copy
-    
-    # Update title with new version
-    schema["title"] = f"PlaneQuery Aircraft Community Submission (v{new_version})"
     
     # Build tag properties with explicit types
     tag_properties = {}
@@ -89,57 +85,55 @@ def check_for_new_tags(tag_registry: dict[str, str], current_schema: dict) -> li
     return [tag for tag in tag_registry if tag not in existing_tags]
 
 
-def create_new_schema_version(
+def update_schema_file(
     tag_registry: dict[str, str],
     check_only: bool = False
-) -> tuple[int | None, list[str]]:
+) -> tuple[bool, list[str]]:
     """
-    Create a new schema version if there are new tags.
+    Update the v1 schema file with new tag definitions.
     
     Args:
         tag_registry: Dict mapping tag name to type name
         check_only: If True, only check if update is needed without writing
         
     Returns:
-        Tuple of (new_version or None if no update, list_of_new_tags)
+        Tuple of (was_updated, list_of_new_tags)
     """
-    current_version = get_latest_schema_version()
-    current_schema = load_schema(current_version)
+    current_schema = load_schema()
     
     # Find new tags
     new_tags = check_for_new_tags(tag_registry, current_schema)
     
     if not new_tags:
-        return None, []
+        return False, []
     
     if check_only:
-        return current_version + 1, new_tags
+        return True, new_tags
     
-    # Generate and write new schema
-    new_version = current_version + 1
-    new_schema = generate_new_schema(current_schema, tag_registry, new_version)
-    new_schema_path = get_schema_path(new_version)
+    # Generate and write updated schema (in place)
+    updated_schema = generate_updated_schema(current_schema, tag_registry)
+    schema_path = get_schema_path()
     
-    with open(new_schema_path, "w") as f:
-        json.dump(new_schema, f, indent=2)
+    with open(schema_path, "w") as f:
+        json.dump(updated_schema, f, indent=2)
         f.write("\n")
     
-    return new_version, new_tags
+    return True, new_tags
 
 
-def update_schema_from_submissions(check_only: bool = False) -> tuple[int | None, list[str]]:
+def update_schema_from_submissions(check_only: bool = False) -> tuple[bool, list[str]]:
     """
-    Read all submissions and create a new schema version if needed.
+    Read all submissions and update the schema if needed.
     
     Args:
         check_only: If True, only check if update is needed without writing
         
     Returns:
-        Tuple of (new_version or None if no update, list_of_new_tags)
+        Tuple of (was_updated, list_of_new_tags)
     """
     submissions = read_all_submissions()
     tag_registry = build_tag_type_registry(submissions)
-    return create_new_schema_version(tag_registry, check_only)
+    return update_schema_file(tag_registry, check_only)
 
 
 def main():
@@ -148,21 +142,21 @@ def main():
     
     args = parser.parse_args()
     
-    new_version, new_tags = update_schema_from_submissions(check_only=args.check)
+    was_updated, new_tags = update_schema_from_submissions(check_only=args.check)
     
     if args.check:
-        if new_version:
-            print(f"Schema update needed -> v{new_version}. New tags: {', '.join(new_tags)}")
+        if was_updated:
+            print(f"Schema update needed. New tags: {', '.join(new_tags)}")
             sys.exit(1)
         else:
-            print(f"Schema is up to date (v{get_latest_schema_version()})")
+            print("Schema is up to date")
             sys.exit(0)
     else:
-        if new_version:
-            print(f"Created {get_schema_path(new_version)}")
+        if was_updated:
+            print(f"Updated {get_schema_path()}")
             print(f"Added tags: {', '.join(new_tags)}")
         else:
-            print(f"No update needed (v{get_latest_schema_version()})")
+            print("No update needed")
 
 
 if __name__ == "__main__":

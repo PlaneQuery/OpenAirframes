@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Regenerate schema for a PR branch after main has been merged in.
-This script looks at the submission files in this branch and generates
-an updated schema version if new tags were introduced.
+This script looks at the submission files in this branch and updates
+the schema if new tags were introduced.
 
 Usage: python -m src.contributions.regenerate_pr_schema
 """
@@ -18,15 +18,14 @@ from src.contributions.read_community_data import read_all_submissions, build_ta
 from src.contributions.update_schema import (
     get_existing_tag_definitions,
     check_for_new_tags,
-    generate_new_schema,
+    generate_updated_schema,
 )
-from src.contributions.schema import get_latest_schema_version, load_schema, SCHEMAS_DIR
+from src.contributions.schema import load_schema, SCHEMAS_DIR
 
 
 def main():
     """Main entry point."""
-    # Get current schema version and load it
-    current_version = get_latest_schema_version()
+    # Load current schema
     current_schema = load_schema()
     
     # Get existing tag definitions from schema
@@ -46,20 +45,19 @@ def main():
     new_tags = check_for_new_tags(tag_registry, current_schema)
     
     if new_tags:
-        # Generate new schema version
-        new_version = current_version + 1
         print(f"Found new tags: {new_tags}")
-        print(f"Generating schema v{new_version}")
+        print("Updating schema...")
         
-        # Generate new schema with updated tag definitions
-        new_schema = generate_new_schema(current_schema, tag_registry, new_version)
+        # Generate updated schema
+        updated_schema = generate_updated_schema(current_schema, tag_registry)
         
-        # Write new schema version
-        new_schema_path = SCHEMAS_DIR / f"community_submission.v{new_version}.schema.json"
-        with open(new_schema_path, 'w') as f:
-            json.dump(new_schema, f, indent=2)
+        # Write updated schema (in place)
+        schema_path = SCHEMAS_DIR / "community_submission.v1.schema.json"
+        with open(schema_path, 'w') as f:
+            json.dump(updated_schema, f, indent=2)
+            f.write("\n")
         
-        print(f"Created {new_schema_path}")
+        print(f"Updated {schema_path}")
     else:
         print("No new tags found, schema is up to date")
 
