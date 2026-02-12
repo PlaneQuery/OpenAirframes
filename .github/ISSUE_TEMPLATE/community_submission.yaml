@@ -22,20 +22,22 @@ body:
         **Example: single object**
         ```json
         {
-          "transponder_code_hex": "a1b2c3"
+            "registration_number": "N12345",
+            "tags": {"owner": "Taylor Swift"}
         }
         ```
 
         **Example: multiple objects (array)**
         ```json
         [
-          {
-            "registration_number": "N123AB"
-          },
-          {
-            "planequery_airframe_id": "cessna|172s|12345",
-            "transponder_code_hex": "0f1234"
-          }
+        {
+            "registration_number": "N12345",
+            "tags": {"internet": "starlink"}
+        },
+        {
+            "transponder_code_hex": "ABC123",
+            "tags": {"internet": "viasat", "owner": "John Doe"}
+        }
         ]
         ```
 
