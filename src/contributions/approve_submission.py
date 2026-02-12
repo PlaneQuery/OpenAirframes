@@ -100,14 +100,30 @@ def create_branch(branch_name: str, sha: str) -> None:
             raise
 
 
+def get_file_sha(path: str, branch: str) -> str | None:
+    """Get the SHA of an existing file, or None if it doesn't exist."""
+    try:
+        response = github_api_request("GET", f"/contents/{path}?ref={branch}")
+        return response.get("sha")
+    except Exception:
+        return None
+
+
 def create_or_update_file(path: str, content: str, message: str, branch: str) -> None:
     """Create or update a file in the repository."""
     content_b64 = base64.b64encode(content.encode()).decode()
-    github_api_request("PUT", f"/contents/{path}", {
+    payload = {
         "message": message,
         "content": content_b64,
         "branch": branch,
-    })
+    }
+    
+    # If file exists, we need to include its SHA to update it
+    sha = get_file_sha(path, branch)
+    if sha:
+        payload["sha"] = sha
+    
+    github_api_request("PUT", f"/contents/{path}", payload)
 
 
 def create_pull_request(title: str, head: str, base: str, body: str) -> dict:
