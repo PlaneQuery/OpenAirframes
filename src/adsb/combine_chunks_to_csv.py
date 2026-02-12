@@ -179,7 +179,7 @@ def main():
         output_filename = f"planequery_aircraft_adsb_{args.start_date}_{args.end_date}.csv"
         print(f"Combining chunks for date range: {args.start_date} to {args.end_date}")
     else:
-        # Daily mode
+        # Daily mode - use same date for start and end
         if args.date:
             target_day = datetime.strptime(args.date, "%Y-%m-%d")
         else:
@@ -187,7 +187,7 @@ def main():
         
         date_str = target_day.strftime("%Y-%m-%d")
         output_id = date_str
-        output_filename = f"planequery_aircraft_adsb_{date_str}.csv"
+        output_filename = f"planequery_aircraft_adsb_{date_str}_{date_str}.csv"
         print(f"Combining chunks for {date_str}")
     
     chunks_dir = args.chunks_dir
