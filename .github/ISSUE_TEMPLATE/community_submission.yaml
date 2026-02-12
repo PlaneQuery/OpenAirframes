@@ -13,26 +13,37 @@ body:
         **Rules (enforced on review/automation):**
         - Each object must include **at least one** of:
           - `registration_number`
-          - `transponder_code_hex` (6 hex chars)
+          - `transponder_code_hex` (6 uppercase hex chars, e.g., `ABC123`)
           - `planequery_airframe_id`
         - Your contributor name (entered below) will be applied to all objects.
         - `contributor_uuid` is derived from your GitHub account automatically.
         - `creation_timestamp` is created by the system (you may omit it).
 
+        **Optional date scoping:**
+        - `start_date` - When the tags become valid (ISO 8601: `YYYY-MM-DD`)
+        - `end_date` - When the tags stop being valid (ISO 8601: `YYYY-MM-DD`)
+
         **Example: single object**
         ```json
         {
             "registration_number": "N12345",
-            "tags": {"owner": "Taylor Swift"}
+            "tags": {"owner": "John Doe"},
+            "start_date": "2025-01-01"
         }
         ```
-
         **Example: multiple objects (array)**
         ```json
         [
         {
             "registration_number": "N12345",
-            "tags": {"internet": "starlink"}
+            "tags": {"internet": "starlink"},
+            "start_date": "2025-05-01"
+        },
+        {
+            "registration_number": "N12345",
+            "tags": {"owner": "John Doe"},
+            "start_date": "2025-01-01",
+            "end_date": "2025-07-20"
         },
         {
             "transponder_code_hex": "ABC123",
