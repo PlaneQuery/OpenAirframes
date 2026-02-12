@@ -14,7 +14,7 @@ body:
         - Each object must include **at least one** of:
           - `registration_number`
           - `transponder_code_hex` (6 uppercase hex chars, e.g., `ABC123`)
-          - `planequery_airframe_id`
+          - `openairframes_id`
         - Your contributor name (entered below) will be applied to all objects.
         - `contributor_uuid` is derived from your GitHub account automatically.
         - `creation_timestamp` is created by the system (you may omit it).

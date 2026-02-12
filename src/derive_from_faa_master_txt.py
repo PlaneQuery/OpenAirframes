@@ -29,8 +29,8 @@ def convert_faa_master_txt_to_df(zip_path: Path, date: str):
     certification = pd.json_normalize(df["certification"].where(df["certification"].notna(), {})).add_prefix("certificate_")
     df = df.drop(columns="certification").join(certification)
     
-    # Create planequery_airframe_id
-    df["planequery_airframe_id"] = (
+    # Create openairframes_id
+    df["openairframes_id"] = (
         normalize(df["aircraft_manufacturer"])
         + "|"
         + normalize(df["aircraft_model"])
@@ -38,11 +38,11 @@ def convert_faa_master_txt_to_df(zip_path: Path, date: str):
         + normalize(df["serial_number"])
     )
     
-    # Move planequery_airframe_id to come after registration_number
+    # Move openairframes_id to come after registration_number
     cols = df.columns.tolist()
-    cols.remove("planequery_airframe_id")
+    cols.remove("openairframes_id")
     reg_idx = cols.index("registration_number")
-    cols.insert(reg_idx + 1, "planequery_airframe_id")
+    cols.insert(reg_idx + 1, "openairframes_id")
     df = df[cols]
     
     # Convert all NaN to empty strings

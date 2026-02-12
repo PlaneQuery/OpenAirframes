@@ -112,8 +112,8 @@ def group_by_identifier(submissions: list[dict]) -> dict[str, list[dict]]:
             key = f"reg:{submission['registration_number']}"
         elif "transponder_code_hex" in submission:
             key = f"icao:{submission['transponder_code_hex']}"
-        elif "planequery_airframe_id" in submission:
-            key = f"id:{submission['planequery_airframe_id']}"
+        elif "openairframes_id" in submission:
+            key = f"id:{submission['openairframes_id']}"
         else:
             key = "_unknown"
         
