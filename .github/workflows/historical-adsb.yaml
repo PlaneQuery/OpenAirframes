@@ -81,8 +81,22 @@ jobs:
       - name: Create tar of extracted data
         run: |
           cd data/output
-          tar -cf extracted_data.tar *-planes-readsb-prod-0.tar_0 icao_manifest_*.txt 2>/dev/null || echo "Some files may not exist"
-          ls -lah extracted_data.tar || echo "No tar created"
+          echo "=== Disk space before tar ==="
+          df -h .
+          echo "=== Files to tar ==="
+          ls -lah *-planes-readsb-prod-0.tar_0 icao_manifest_*.txt 2>/dev/null || echo "No files found"
+          
+          # Create tar with explicit error checking
+          if ls *-planes-readsb-prod-0.tar_0 1>/dev/null 2>&1; then
+            tar -cvf extracted_data.tar *-planes-readsb-prod-0.tar_0 icao_manifest_*.txt
+            echo "=== Tar file created ==="
+            ls -lah extracted_data.tar
+            # Verify tar integrity
+            tar -tf extracted_data.tar > /dev/null && echo "Tar integrity check passed" || { echo "Tar integrity check FAILED"; exit 1; }
+          else
+            echo "ERROR: No extracted directories found, cannot create tar"
+            exit 1
+          fi
 
       - name: Upload extracted data
         uses: actions/upload-artifact@v4
@@ -97,7 +111,7 @@ jobs:
     needs: [generate-matrix, adsb-extract]
     runs-on: ubuntu-24.04-arm
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         chunk: ${{ fromJson(needs.generate-matrix.outputs.chunks) }}
         icao_chunk: [0, 1, 2, 3]
@@ -134,7 +148,12 @@ jobs:
         run: |
           cd data/output
           if [ -f extracted_data.tar ]; then
-            tar -xf extracted_data.tar
+            echo "=== Tar file info ==="
+            ls -lah extracted_data.tar
+            echo "=== Verifying tar integrity ==="
+            tar -tf extracted_data.tar > /dev/null || { echo "ERROR: Tar file is corrupted"; exit 1; }
+            echo "=== Extracting ==="
+            tar -xvf extracted_data.tar
             rm extracted_data.tar
             echo "has_data=true" >> "$GITHUB_OUTPUT"
             echo "=== Contents of data/output ==="
@@ -188,17 +207,19 @@ jobs:
 
       - name: Debug downloaded files
         run: |
+          echo "=== Disk space before processing ==="
+          df -h
           echo "=== Listing data/output/adsb_chunks/ ==="
-          find data/output/adsb_chunks/ -type f 2>/dev/null | head -50 || echo "No files found"
-          echo "=== Looking for parquet files ==="
-          find . -name "*.parquet" 2>/dev/null | head -20 || echo "No parquet files found"
+          find data/output/adsb_chunks/ -type f 2>/dev/null | wc -l
+          echo "=== Total parquet size ==="
+          du -sh data/output/adsb_chunks/ || echo "No chunks dir"
 
       - name: Combine chunks to CSV
         env:
           START_DATE: ${{ needs.generate-matrix.outputs.global_start }}
           END_DATE: ${{ needs.generate-matrix.outputs.global_end }}
         run: |
-          python -m src.adsb.combine_chunks_to_csv --chunks-dir data/output/adsb_chunks --start-date "$START_DATE" --end-date "$END_DATE" --skip-base
+          python -m src.adsb.combine_chunks_to_csv --chunks-dir data/output/adsb_chunks --start-date "$START_DATE" --end-date "$END_DATE" --skip-base --stream
           ls -lah data/planequery_aircraft/
 
       - name: Upload final artifact

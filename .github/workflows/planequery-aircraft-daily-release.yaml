@@ -277,6 +277,15 @@ jobs:
           name: community-release
           path: artifacts/community
 
+      - name: Debug artifact structure
+        run: |
+          echo "=== FAA artifacts ==="
+          find artifacts/faa -type f 2>/dev/null || echo "No files found in artifacts/faa"
+          echo "=== ADS-B artifacts ==="
+          find artifacts/adsb -type f 2>/dev/null || echo "No files found in artifacts/adsb"
+          echo "=== Community artifacts ==="
+          find artifacts/community -type f 2>/dev/null || echo "No files found in artifacts/community"
+
       - name: Prepare release metadata
         id: meta
         run: |
@@ -311,6 +320,13 @@ jobs:
           echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
           echo "zip_basename=$ZIP_BASENAME" >> "$GITHUB_OUTPUT"
           echo "name=planequery-aircraft snapshot ($DATE)${BRANCH_SUFFIX}" >> "$GITHUB_OUTPUT"
+
+      - name: Delete existing release if exists
+        run: |
+          gh release delete "${{ steps.meta.outputs.tag }}" --yes 2>/dev/null || true
+          git push --delete origin "refs/tags/${{ steps.meta.outputs.tag }}" 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2

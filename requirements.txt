@@ -3,3 +3,4 @@ pandas==3.0.0
 pyarrow==23.0.0
 orjson==3.11.7
 polars==1.38.1
+jsonschema==4.26.0
