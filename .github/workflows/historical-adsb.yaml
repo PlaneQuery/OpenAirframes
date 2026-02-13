@@ -74,6 +74,7 @@ jobs:
         env:
           START_DATE: ${{ matrix.chunk.start_date }}
           END_DATE: ${{ matrix.chunk.end_date }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python -m src.adsb.download_and_list_icaos --start-date "$START_DATE" --end-date "$END_DATE"
           ls -lah data/output/

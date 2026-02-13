@@ -93,6 +93,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Download and extract ADS-B data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python -m src.adsb.download_and_list_icaos
           ls -lah data/output/
