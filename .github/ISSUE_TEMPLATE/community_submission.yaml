@@ -27,7 +27,7 @@ body:
         ```json
         {
             "registration_number": "N12345",
-            "tags": {"owner": "John Doe"},
+            "tags": {"owner": "John Doe", "photo": "https://example.com/photo.jpg"},
             "start_date": "2025-01-01"
         }
         ```
