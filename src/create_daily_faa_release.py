@@ -1,6 +1,15 @@
 from pathlib import Path
-from datetime import datetime, timezone
-date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+from datetime import datetime, timezone, timedelta
+import argparse
+
+parser = argparse.ArgumentParser(description="Create daily FAA release")
+parser.add_argument("--date", type=str, help="Date to process (YYYY-MM-DD format, default: today)")
+args = parser.parse_args()
+
+if args.date:
+    date_str = args.date
+else:
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 out_dir = Path("data/faa_releasable")
 out_dir.mkdir(parents=True, exist_ok=True)

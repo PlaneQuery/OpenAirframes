@@ -5,6 +5,11 @@ on:
     # 6:00pm UTC every day - runs on default branch, triggers both
     - cron: "0 06 * * *"
   workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date to process (YYYY-MM-DD format, default: yesterday)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -58,7 +63,7 @@ jobs:
 
       - name: Run FAA release script
         run: |
-          python src/create_daily_faa_release.py
+          python src/create_daily_faa_release.py ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
           ls -lah data/faa_releasable
           ls -lah data/openairframes
 
@@ -96,7 +101,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python -m src.adsb.download_and_list_icaos
+          python -m src.adsb.download_and_list_icaos ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
           ls -lah data/output/
 
       - name: Check manifest exists
@@ -166,7 +171,7 @@ jobs:
 
       - name: Process chunk ${{ matrix.chunk }}
         run: |
-          python -m src.adsb.process_icao_chunk --chunk-id ${{ matrix.chunk }} --total-chunks 4
+          python -m src.adsb.process_icao_chunk --chunk-id ${{ matrix.chunk }} --total-chunks 4 ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
           mkdir -p data/output/adsb_chunks
           ls -lah data/output/adsb_chunks/ || echo "No chunks created"
 
@@ -215,7 +220,7 @@ jobs:
         run: |
           mkdir -p data/output/adsb_chunks
           ls -lah data/output/adsb_chunks/ || echo "Directory empty or does not exist"
-          python -m src.adsb.combine_chunks_to_csv --chunks-dir data/output/adsb_chunks
+          python -m src.adsb.combine_chunks_to_csv --chunks-dir data/output/adsb_chunks ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
           ls -lah data/openairframes/
 
       - name: Upload ADS-B artifacts
