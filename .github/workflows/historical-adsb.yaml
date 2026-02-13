@@ -79,7 +79,7 @@ jobs:
           python -m src.adsb.download_and_list_icaos --start-date "$START_DATE" --end-date "$END_DATE"
           ls -lah data/output/
 
-      - name: Create tar of extracted data
+      - name: Create tar of extracted data and split into chunks
         run: |
           cd data/output
           echo "=== Disk space before tar ==="
@@ -94,16 +94,30 @@ jobs:
             ls -lah extracted_data.tar
             # Verify tar integrity
             tar -tf extracted_data.tar > /dev/null && echo "Tar integrity check passed" || { echo "Tar integrity check FAILED"; exit 1; }
+            
+            # Split into 1GB chunks to avoid artifact upload issues
+            echo "=== Splitting tar into 1GB chunks ==="
+            mkdir -p tar_chunks
+            split -b 1G extracted_data.tar tar_chunks/extracted_data.tar.part_
+            rm extracted_data.tar
+            
+            # Create checksums for each chunk
+            cd tar_chunks
+            for f in extracted_data.tar.part_*; do
+              sha256sum "$f" > "$f.sha256"
+            done
+            echo "=== Chunks created ==="
+            ls -lah
           else
             echo "ERROR: No extracted directories found, cannot create tar"
             exit 1
           fi
 
-      - name: Upload extracted data
+      - name: Upload extracted data chunks
         uses: actions/upload-artifact@v4
         with:
           name: adsb-extracted-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}
-          path: data/output/extracted_data.tar
+          path: data/output/tar_chunks/
           retention-days: 1
           compression-level: 0
           if-no-files-found: warn
@@ -141,18 +155,36 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: adsb-extracted-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}
-          path: data/output/
-        continue-on-error: true
+          path: data/output/tar_chunks/
 
-      - name: Extract tar
+      - name: Reassemble and extract tar
         id: extract
         run: |
           cd data/output
-          if [ -f extracted_data.tar ]; then
-            echo "=== Tar file info ==="
+          if [ -d tar_chunks ] && ls tar_chunks/extracted_data.tar.part_* 1>/dev/null 2>&1; then
+            echo "=== Chunk files info ==="
+            ls -lah tar_chunks/
+            
+            # Verify checksums
+            echo "=== Verifying chunk checksums ==="
+            cd tar_chunks
+            for f in extracted_data.tar.part_*.sha256; do
+              sha256sum -c "$f" || { echo "ERROR: Checksum verification failed for $f"; exit 1; }
+            done
+            echo "All checksums verified"
+            
+            # Reassemble tar
+            echo "=== Reassembling tar file ==="
+            cat extracted_data.tar.part_* > ../extracted_data.tar
+            cd ..
+            rm -rf tar_chunks
+            
+            echo "=== Reassembled tar file info ==="
             ls -lah extracted_data.tar
+            
             echo "=== Verifying tar integrity ==="
-            tar -tf extracted_data.tar > /dev/null || { echo "ERROR: Tar file is corrupted"; exit 1; }
+            tar -tf extracted_data.tar > /dev/null || { echo "ERROR: Reassembled tar file is corrupted"; exit 1; }
+            
             echo "=== Extracting ==="
             tar -xvf extracted_data.tar
             rm extracted_data.tar
@@ -160,7 +192,7 @@ jobs:
             echo "=== Contents of data/output ==="
             ls -lah
           else
-            echo "No extracted_data.tar found"
+            echo "No tar chunks found"
             echo "has_data=false" >> "$GITHUB_OUTPUT"
           fi
 
