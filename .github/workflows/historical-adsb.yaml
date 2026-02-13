@@ -95,19 +95,20 @@ jobs:
             # Verify tar integrity
             tar -tf extracted_data.tar > /dev/null && echo "Tar integrity check passed" || { echo "Tar integrity check FAILED"; exit 1; }
             
-            # Split into 1GB chunks to avoid artifact upload issues
-            echo "=== Splitting tar into 1GB chunks ==="
-            mkdir -p tar_chunks
-            split -b 1G extracted_data.tar tar_chunks/extracted_data.tar.part_
-            rm extracted_data.tar
+            # Create checksum of the FULL tar before splitting (for verification after reassembly)
+            echo "=== Creating checksum of full tar ==="
+            sha256sum extracted_data.tar > full_tar.sha256
+            cat full_tar.sha256
             
-            # Create checksums for each chunk
-            cd tar_chunks
-            for f in extracted_data.tar.part_*; do
-              sha256sum "$f" > "$f.sha256"
-            done
+            # Split into 500MB chunks to avoid artifact upload issues
+            echo "=== Splitting tar into 500MB chunks ==="
+            mkdir -p tar_chunks
+            split -b 500M extracted_data.tar tar_chunks/extracted_data.tar.part_
+            rm extracted_data.tar
+            mv full_tar.sha256 tar_chunks/
+            
             echo "=== Chunks created ==="
-            ls -lah
+            ls -lah tar_chunks/
           else
             echo "ERROR: No extracted directories found, cannot create tar"
             exit 1
@@ -165,25 +166,29 @@ jobs:
             echo "=== Chunk files info ==="
             ls -lah tar_chunks/
             
-            # Verify checksums
-            echo "=== Verifying chunk checksums ==="
             cd tar_chunks
-            for f in extracted_data.tar.part_*.sha256; do
-              sha256sum -c "$f" || { echo "ERROR: Checksum verification failed for $f"; exit 1; }
-            done
-            echo "All checksums verified"
             
-            # Reassemble tar
+            # Reassemble tar with explicit sorting
             echo "=== Reassembling tar file ==="
-            cat extracted_data.tar.part_* > ../extracted_data.tar
+            ls -1 extracted_data.tar.part_?? | sort | while read part; do
+              echo "Appending $part..."
+              cat "$part" >> ../extracted_data.tar
+            done
             cd ..
-            rm -rf tar_chunks
             
             echo "=== Reassembled tar file info ==="
             ls -lah extracted_data.tar
             
-            echo "=== Verifying tar integrity ==="
-            tar -tf extracted_data.tar > /dev/null || { echo "ERROR: Reassembled tar file is corrupted"; exit 1; }
+            # Verify checksum of reassembled tar matches original
+            echo "=== Verifying reassembled tar checksum ==="
+            echo "Original checksum:"
+            cat tar_chunks/full_tar.sha256
+            echo "Reassembled checksum:"
+            sha256sum extracted_data.tar
+            sha256sum -c tar_chunks/full_tar.sha256 || { echo "ERROR: Reassembled tar checksum mismatch - data corrupted during transfer"; exit 1; }
+            echo "Checksum verified - data integrity confirmed"
+            
+            rm -rf tar_chunks
             
             echo "=== Extracting ==="
             tar -xvf extracted_data.tar
