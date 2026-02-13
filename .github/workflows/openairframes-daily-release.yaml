@@ -300,13 +300,35 @@ jobs:
           TAG="openairframes-${DATE}${BRANCH_SUFFIX}"
           
           # Find files from artifacts using find (handles nested structures)
-          CSV_FILE_FAA=$(find artifacts/faa -name "openairframes_faa_*.csv" | head -1)
+          CSV_FILE_FAA=$(find artifacts/faa -name "openairframes_faa_*.csv" -type f 2>/dev/null | head -1)
+          CSV_FILE_ADSB=$(find artifacts/adsb -name "openairframes_adsb_*.csv" -type f 2>/dev/null | head -1)
+          CSV_FILE_COMMUNITY=$(find artifacts/community -name "openairframes_community_*.csv" -type f 2>/dev/null | head -1)
+          ZIP_FILE=$(find artifacts/faa -name "ReleasableAircraft_*.zip" -type f 2>/dev/null | head -1)
+          
+          # Validate required files exist
+          MISSING_FILES=""
+          if [ -z "$CSV_FILE_FAA" ] || [ ! -f "$CSV_FILE_FAA" ]; then
+            MISSING_FILES="$MISSING_FILES FAA_CSV"
+          fi
+          if [ -z "$CSV_FILE_ADSB" ] || [ ! -f "$CSV_FILE_ADSB" ]; then
+            MISSING_FILES="$MISSING_FILES ADSB_CSV"
+          fi
+          if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
+            MISSING_FILES="$MISSING_FILES FAA_ZIP"
+          fi
+          
+          if [ -n "$MISSING_FILES" ]; then
+            echo "ERROR: Missing required release files:$MISSING_FILES"
+            echo "FAA CSV: $CSV_FILE_FAA"
+            echo "ADSB CSV: $CSV_FILE_ADSB"
+            echo "ZIP: $ZIP_FILE"
+            exit 1
+          fi
+          
+          # Get basenames for display
           CSV_BASENAME_FAA=$(basename "$CSV_FILE_FAA")
-          CSV_FILE_ADSB=$(find artifacts/adsb -name "openairframes_adsb_*.csv" | head -1)
           CSV_BASENAME_ADSB=$(basename "$CSV_FILE_ADSB")
-          CSV_FILE_COMMUNITY=$(find artifacts/community -name "openairframes_community_*.csv" 2>/dev/null | head -1 || echo "")
           CSV_BASENAME_COMMUNITY=$(basename "$CSV_FILE_COMMUNITY" 2>/dev/null || echo "")
-          ZIP_FILE=$(find artifacts/faa -name "ReleasableAircraft_*.zip" | head -1)
           ZIP_BASENAME=$(basename "$ZIP_FILE")
           
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
@@ -320,6 +342,12 @@ jobs:
           echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
           echo "zip_basename=$ZIP_BASENAME" >> "$GITHUB_OUTPUT"
           echo "name=OpenAirframes snapshot ($DATE)${BRANCH_SUFFIX}" >> "$GITHUB_OUTPUT"
+          
+          echo "Found files:"
+          echo "  FAA CSV: $CSV_FILE_FAA"
+          echo "  ADSB CSV: $CSV_FILE_ADSB"
+          echo "  Community CSV: $CSV_FILE_COMMUNITY"
+          echo "  ZIP: $ZIP_FILE"
 
       - name: Checkout for gh CLI
         uses: actions/checkout@v4
@@ -336,6 +364,7 @@ jobs:
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: ${{ steps.meta.outputs.name }}
+          fail_on_unmatched_files: true
           body: |
             Automated daily snapshot generated at 06:00 UTC for ${{ steps.meta.outputs.date }}.
 
