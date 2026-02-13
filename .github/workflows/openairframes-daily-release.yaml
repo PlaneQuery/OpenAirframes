@@ -266,6 +266,13 @@ jobs:
     needs: [build-faa, adsb-reduce, build-community]
     if: github.event_name != 'schedule'
     steps:
+      - name: Checkout for gh CLI
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
+          sparse-checkout-cone-mode: false
+
       - name: Download FAA artifacts
         uses: actions/download-artifact@v4
         with:
@@ -286,6 +293,8 @@ jobs:
 
       - name: Debug artifact structure
         run: |
+          echo "=== Full artifacts tree ==="
+          find artifacts -type f 2>/dev/null || echo "No files found in artifacts"
           echo "=== FAA artifacts ==="
           find artifacts/faa -type f 2>/dev/null || echo "No files found in artifacts/faa"
           echo "=== ADS-B artifacts ==="
@@ -355,9 +364,6 @@ jobs:
           echo "  ADSB CSV: $CSV_FILE_ADSB"
           echo "  Community CSV: $CSV_FILE_COMMUNITY"
           echo "  ZIP: $ZIP_FILE"
-
-      - name: Checkout for gh CLI
-        uses: actions/checkout@v4
 
       - name: Delete existing release if exists
         run: |
