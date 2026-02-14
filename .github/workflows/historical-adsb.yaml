@@ -71,6 +71,7 @@ jobs:
           df -h
 
       - name: Download and extract ADS-B data
+        id: download
         env:
           START_DATE: ${{ matrix.chunk.start_date }}
           END_DATE: ${{ matrix.chunk.end_date }}
@@ -78,8 +79,20 @@ jobs:
         run: |
           python -m src.adsb.download_and_list_icaos --start-date "$START_DATE" --end-date "$END_DATE"
           ls -lah data/output/
+          
+          # Check if manifest has any ICAOs
+          MANIFEST=$(ls data/output/icao_manifest_*.txt 2>/dev/null | head -1)
+          if [ -z "$MANIFEST" ] || [ ! -s "$MANIFEST" ]; then
+            echo "No data available for this date range"
+            echo "has_data=false" >> "$GITHUB_OUTPUT"
+          else
+            ICAO_COUNT=$(wc -l < "$MANIFEST")
+            echo "Manifest has $ICAO_COUNT ICAOs"
+            echo "has_data=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create tar of extracted data and split into chunks
+        if: steps.download.outputs.has_data == 'true'
         run: |
           cd data/output
           echo "=== Disk space before tar ==="
@@ -115,6 +128,7 @@ jobs:
           fi
 
       - name: Upload extracted data chunks
+        if: steps.download.outputs.has_data == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: adsb-extracted-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}
@@ -127,7 +141,7 @@ jobs:
     needs: [generate-matrix, adsb-extract]
     runs-on: ubuntu-24.04-arm
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         chunk: ${{ fromJson(needs.generate-matrix.outputs.chunks) }}
         icao_chunk: [0, 1, 2, 3]
@@ -154,6 +168,7 @@ jobs:
 
       - name: Download extracted data
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: adsb-extracted-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}
           path: data/output/tar_chunks/
@@ -221,6 +236,7 @@ jobs:
 
   adsb-reduce:
     needs: [generate-matrix, adsb-map]
+    if: always() && needs.generate-matrix.result == 'success'
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
@@ -238,12 +254,26 @@ jobs:
 
       - name: Download all chunk artifacts
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           pattern: adsb-map-*
           path: data/output/adsb_chunks/
           merge-multiple: true
 
+      - name: Check for data
+        id: check_data
+        run: |
+          PARQUET_COUNT=$(find data/output/adsb_chunks/ -name '*.parquet' -type f 2>/dev/null | wc -l)
+          echo "Found $PARQUET_COUNT parquet files"
+          if [ "$PARQUET_COUNT" -eq 0 ]; then
+            echo "WARNING: No parquet chunks found - all date ranges may have had no releases"
+            echo "has_data=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_data=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Debug downloaded files
+        if: steps.check_data.outputs.has_data == 'true'
         run: |
           echo "=== Disk space before processing ==="
           df -h
@@ -253,6 +283,7 @@ jobs:
           du -sh data/output/adsb_chunks/ || echo "No chunks dir"
 
       - name: Combine chunks to CSV
+        if: steps.check_data.outputs.has_data == 'true'
         env:
           START_DATE: ${{ needs.generate-matrix.outputs.global_start }}
           END_DATE: ${{ needs.generate-matrix.outputs.global_end }}
@@ -261,6 +292,7 @@ jobs:
           ls -lah data/openairframes/
 
       - name: Upload final artifact
+        if: steps.check_data.outputs.has_data == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: openairframes_adsb-${{ needs.generate-matrix.outputs.global_start }}-${{ needs.generate-matrix.outputs.global_end }}

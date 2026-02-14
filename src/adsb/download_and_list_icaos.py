@@ -176,13 +176,15 @@ def main():
         
         all_icaos = process_date_range(start_date, end_date)
         
-        if not all_icaos:
-            print("No ICAOs found in date range")
-            sys.exit(1)
-        
         # Write combined manifest with range identifier
         manifest_id = f"{args.start_date}_{args.end_date}"
-        write_manifest(list(all_icaos), manifest_id)
+        
+        if not all_icaos:
+            print("WARNING: No ICAOs found in date range (no releases available)")
+            # Write empty manifest so downstream steps can detect and skip
+            write_manifest([], manifest_id)
+        else:
+            write_manifest(list(all_icaos), manifest_id)
         
         print(f"\nDone! Total ICAOs: {len(all_icaos)}")
         
