@@ -104,18 +104,16 @@ def download_and_merge_base_release(compressed_df: pl.DataFrame) -> tuple[pl.Dat
             base_df = pl.read_csv(base_path)
             print(f"Base release has {len(base_df)} records")
             
+            # Parse time column as datetime
+            base_df = base_df.with_columns(
+                pl.col('time').str.to_datetime(time_unit='ms', time_zone='UTC')
+            )
+            
             # Extract earliest date from base release
-            earliest_date = None
-            if 'time' in base_df.columns and len(base_df) > 0:
-                try:
-                    earliest_timestamp = base_df['time'].min()
-                    if earliest_timestamp:
-                        # Parse timestamp and extract date
-                        earliest_dt = datetime.fromisoformat(str(earliest_timestamp).replace('Z', '+00:00'))
-                        earliest_date = earliest_dt.strftime('%Y-%m-%d')
-                        print(f"Earliest date in base release: {earliest_date}")
-                except Exception as e:
-                    print(f"Could not extract earliest date from base release: {e}")
+            earliest_timestamp = base_df['time'].min()
+            earliest_dt = datetime.fromisoformat(str(earliest_timestamp).replace('Z', '+00:00'))
+            earliest_date = earliest_dt.strftime('%Y-%m-%d')
+            print(f"Earliest date in base release: {earliest_date}")
             
             # Ensure columns match
             base_cols = set(base_df.columns)
