@@ -14,6 +14,7 @@ Usage:
     python -m src.adsb.combine_chunks_to_csv --chunks-dir data/output/adsb_chunks --start-date 2024-01-01 --end-date 2024-01-07 --skip-base
 """
 import gc
+import gzip
 import os
 import sys
 import glob
