@@ -101,13 +101,10 @@ def download_and_merge_base_release(compressed_df: pl.DataFrame) -> tuple[pl.Dat
         
         if base_path and os.path.exists(str(base_path)):
             print(f"Loading base release from {base_path}")
-            base_df = pl.read_csv(base_path)
-            print(f"Base release has {len(base_df)} records")
             
-            # Parse time column as datetime
-            base_df = base_df.with_columns(
-                pl.col('time').str.to_datetime(time_unit='ms', time_zone='UTC')
-            )
+            # Read CSV with schema matching the new data
+            base_df = pl.read_csv(base_path, schema=compressed_df.schema)
+            print(f"Base release has {len(base_df)} records")
             
             # Extract earliest date from base release
             earliest_timestamp = base_df['time'].min()
