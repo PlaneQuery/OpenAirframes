@@ -76,13 +76,9 @@ def timeout_handler(signum, frame):
     raise DownloadTimeoutException("Download timed out after 40 seconds")
 
 
-def fetch_releases(version_date: str) -> list:
-    """Fetch GitHub releases for a given version date from adsblol."""
-    year = version_date.split('.')[0][1:]
-    if version_date == "v2024.12.31":
-        year = "2025"
+def _fetch_releases_from_repo(year: str, version_date: str) -> list:
+    """Fetch GitHub releases for a given version date from a specific year's adsblol repo."""
     BASE_URL = f"https://api.github.com/repos/adsblol/globe_history_{year}/releases"
-    # Match both normal and tmp releases
     PATTERN = rf"^{re.escape(version_date)}-planes-readsb-prod-\d+(tmp)?$"
     releases = []
     page = 1
@@ -120,6 +116,25 @@ def fetch_releases(version_date: str) -> list:
             if re.match(PATTERN, release["tag_name"]):
                 releases.append(release)
         page += 1
+    return releases
+
+
+def fetch_releases(version_date: str) -> list:
+    """Fetch GitHub releases for a given version date from adsblol.
+    
+    For Dec 31 dates, if no releases are found in the current year's repo,
+    also checks the next year's repo (adsblol sometimes publishes Dec 31
+    data in the following year's repository).
+    """
+    year = version_date.split('.')[0][1:]
+    releases = _fetch_releases_from_repo(year, version_date)
+    
+    # For last day of year, also check next year's repo if nothing found
+    if not releases and version_date.endswith(".12.31"):
+        next_year = str(int(year) + 1)
+        print(f"No releases found for {version_date} in {year} repo, checking {next_year} repo...")
+        releases = _fetch_releases_from_repo(next_year, version_date)
+    
     return releases
 
 
