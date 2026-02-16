@@ -282,5 +282,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: openairframes_adsb-${{ needs.generate-matrix.outputs.global_start }}-${{ needs.generate-matrix.outputs.global_end }}
-          path: data/openairframes/*.csv
+          path: data/openairframes/*.csv.gz
           retention-days: 30
