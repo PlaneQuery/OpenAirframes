@@ -235,6 +235,7 @@ jobs:
           name: adsb-map-${{ matrix.chunk.start_date }}-${{ matrix.chunk.end_date }}-chunk-${{ matrix.icao_chunk }}
           path: data/output/adsb_chunks/
           retention-days: 1
+          compression-level: 0
           if-no-files-found: ignore
 
   adsb-reduce:
