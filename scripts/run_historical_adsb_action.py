@@ -53,7 +53,7 @@ def generate_monthly_chunks(start_date_str, end_date_str):
     return chunks
 
 
-def trigger_workflow(start_date, end_date, chunk_days=7, branch='main', dry_run=False):
+def trigger_workflow(start_date, end_date, chunk_days=3, branch='main', dry_run=False):
     """Trigger the historical-adsb workflow via GitHub CLI."""
     cmd = [
         'gh', 'workflow', 'run', 'historical-adsb.yaml',
