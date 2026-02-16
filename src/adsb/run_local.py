@@ -8,10 +8,10 @@ Usage:
     # Single day (yesterday by default)
     python -m src.adsb.run_local
     
-    # Single day (specific date)
-    python -m src.adsb.run_local 2024-01-15
+    # Single day (specific date, processes 2024-01-15 only)
+    python -m src.adsb.run_local 2024-01-15 2024-01-16
     
-    # Date range (inclusive)
+    # Date range (end date is exclusive)
     python -m src.adsb.run_local 2024-01-01 2024-01-07
 """
 import argparse
@@ -38,12 +38,12 @@ def main():
     parser.add_argument(
         "start_date",
         nargs="?",
-        help="Start date (YYYY-MM-DD). Default: yesterday"
+        help="Start date (YYYY-MM-DD, inclusive). Default: yesterday"
     )
     parser.add_argument(
         "end_date",
         nargs="?",
-        help="End date (YYYY-MM-DD, inclusive). If omitted, processes single day"
+        help="End date (YYYY-MM-DD, exclusive). If omitted, processes single day (start_date + 1)"
     )
     parser.add_argument(
         "--chunks",
@@ -70,39 +70,35 @@ def main():
     else:
         start_date = datetime.utcnow() - timedelta(days=1)
     
-    end_date = None
     if args.end_date:
         end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
+    else:
+        # Default: process single day (end = start + 1 day, exclusive)
+        end_date = start_date + timedelta(days=1)
     
     start_str = start_date.strftime("%Y-%m-%d")
-    end_str = end_date.strftime("%Y-%m-%d") if end_date else None
+    end_str = end_date.strftime("%Y-%m-%d")
     
-    # Generate date chunks if processing a range
+    # Generate date chunks
     date_chunks = []
-    if end_str:
-        current = start_date
-        while current < end_date:
-            chunk_end = min(current + timedelta(days=args.chunk_days), end_date)
-            date_chunks.append({
-                'start': current.strftime("%Y-%m-%d"),
-                'end': chunk_end.strftime("%Y-%m-%d")
-            })
-            current = chunk_end
-    else:
-        # Single day
-        date_chunks = [{'start': start_str, 'end': start_str}]
+    current = start_date
+    while current < end_date:
+        chunk_end = min(current + timedelta(days=args.chunk_days), end_date)
+        date_chunks.append({
+            'start': current.strftime("%Y-%m-%d"),
+            'end': chunk_end.strftime("%Y-%m-%d")
+        })
+        current = chunk_end
     
     print("=" * 60)
     print("ADS-B Processing Pipeline")
     print("=" * 60)
-    if end_str:
-        print(f"Date range: {start_str} to {end_str}")
-        print(f"Date chunks: {len(date_chunks)} ({args.chunk_days} days each)")
-    else:
-        print(f"Date: {start_str}")
+    print(f"Date range: {start_str} to {end_str} (exclusive)")
+    print(f"Date chunks: {len(date_chunks)} ({args.chunk_days} days each)")
     print(f"ICAO chunks: {args.chunks}")
     print("=" * 60)
     
+    # Process each date chunk
     # Process each date chunk
     for idx, date_chunk in enumerate(date_chunks, 1):
         chunk_start = date_chunk['start']
@@ -117,12 +113,8 @@ def main():
         print("Step 1: Download and Extract")
         print("=" * 60)
         
-        if chunk_start == chunk_end:
-            cmd = ["python", "-m", "src.adsb.download_and_list_icaos",
-                   "--date", chunk_start]
-        else:
-            cmd = ["python", "-m", "src.adsb.download_and_list_icaos",
-                   "--start-date", chunk_start, "--end-date", chunk_end]
+        cmd = ["python", "-m", "src.adsb.download_and_list_icaos",
+               "--start-date", chunk_start, "--end-date", chunk_end]
         run_cmd(cmd, "Download and extract")
         
         # Step 2: Process chunks
@@ -132,17 +124,11 @@ def main():
         
         for chunk_id in range(args.chunks):
             print(f"\n--- ICAO Chunk {chunk_id + 1}/{args.chunks} ---")
-            if chunk_start == chunk_end:
-                cmd = ["python", "-m", "src.adsb.process_icao_chunk",
-                       "--chunk-id", str(chunk_id),
-                       "--total-chunks", str(args.chunks),
-                       "--date", chunk_start]
-            else:
-                cmd = ["python", "-m", "src.adsb.process_icao_chunk",
-                       "--chunk-id", str(chunk_id),
-                       "--total-chunks", str(args.chunks),
-                       "--start-date", chunk_start,
-                       "--end-date", chunk_end]
+            cmd = ["python", "-m", "src.adsb.process_icao_chunk",
+                   "--chunk-id", str(chunk_id),
+                   "--total-chunks", str(args.chunks),
+                   "--start-date", chunk_start,
+                   "--end-date", chunk_end]
             run_cmd(cmd, f"Process ICAO chunk {chunk_id}")
     
     # Step 3: Combine all chunks to CSV
@@ -152,12 +138,10 @@ def main():
     
     chunks_dir = "./data/output/adsb_chunks"
     cmd = ["python", "-m", "src.adsb.combine_chunks_to_csv",
-           "--chunks-dir", chunks_dir]
-    
-    if end_str:
-        cmd.extend(["--start-date", start_str, "--end-date", end_str])
-    else:
-        cmd.extend(["--date", start_str])
+           "--chunks-dir", chunks_dir,
+           "--start-date", start_str,
+           "--end-date", end_str,
+           "--stream"]
     
     if args.skip_base:
         cmd.append("--skip-base")
@@ -170,10 +154,9 @@ def main():
     
     # Show output
     output_dir = "./data/openairframes"
-    if end_str:
-        output_file = f"openairframes_adsb_{start_str}_{end_str}.csv.gz"
-    else:
-        output_file = f"openairframes_adsb_{start_str}_{start_str}.csv.gz"
+    # Calculate actual end date for filename (end_date - 1 day since it's exclusive)
+    actual_end = (end_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    output_file = f"openairframes_adsb_{start_str}_{actual_end}.csv.gz"
     
     output_path = os.path.join(output_dir, output_file)
     if os.path.exists(output_path):
