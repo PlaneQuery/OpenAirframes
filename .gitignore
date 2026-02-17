@@ -284,3 +284,4 @@ read*lock
 type-fingerprints.txt
 
 notebooks/whatever.ipynb
+.snapshots/
