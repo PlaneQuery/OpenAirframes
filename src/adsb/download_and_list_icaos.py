@@ -1,8 +1,6 @@
 """
-Downloads and extracts adsb.lol tar files, then lists all ICAO folders.
+Downloads and extracts adsb.lol tar files for a single day, then lists all ICAO folders.
 This is the first step of the map-reduce pipeline.
-
-Supports both single-day (daily) and multi-day (historical) modes.
 
 Outputs:
 - Extracted trace files in data/output/{version_date}-planes-readsb-prod-0.tar_0/
@@ -143,74 +141,29 @@ def process_single_day(target_day: datetime) -> tuple[str | None, list[str]]:
     return extract_dir, icaos
 
 
-def process_date_range(start_date: datetime, end_date: datetime) -> set[str]:
-    """Process multiple days: download, extract, combine ICAO lists.
-    
-    Args:
-        start_date: Start date (inclusive)
-        end_date: End date (inclusive)
-    
-    Returns:
-        Combined set of all ICAOs across the date range
-    """
-    all_icaos: set[str] = set()
-    current = start_date
-    
-    # Both start and end are inclusive
-    while current <= end_date:
-        _, icaos = process_single_day(current)
-        all_icaos.update(icaos)
-        current += timedelta(days=1)
-    
-    return all_icaos
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Download and list ICAOs from adsb.lol data")
+    parser = argparse.ArgumentParser(description="Download and list ICAOs from adsb.lol data for a single day")
     parser.add_argument("--date", type=str, help="Single date in YYYY-MM-DD format (default: yesterday)")
-    parser.add_argument("--start-date", type=str, help="Start date for range (YYYY-MM-DD)")
-    parser.add_argument("--end-date", type=str, help="End date for range (YYYY-MM-DD)")
     args = parser.parse_args()
     
-    # Determine mode: single day or date range
-    if args.start_date and args.end_date:
-        # Historical mode: process date range
-        start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
-        end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
-        
-        print(f"Processing date range: {args.start_date} to {args.end_date}")
-        
-        all_icaos = process_date_range(start_date, end_date)
-        
-        if not all_icaos:
-            print("No ICAOs found in date range")
-            sys.exit(1)
-        
-        # Write combined manifest with range identifier
-        manifest_id = f"{args.start_date}_{args.end_date}"
-        write_manifest(list(all_icaos), manifest_id)
-        
-        print(f"\nDone! Total ICAOs: {len(all_icaos)}")
-        
+    # Single day mode only
+    if args.date:
+        target_day = datetime.strptime(args.date, "%Y-%m-%d")
     else:
-        # Daily mode: single day
-        if args.date:
-            target_day = datetime.strptime(args.date, "%Y-%m-%d")
-        else:
-            target_day = get_target_day()
-        
-        date_str = target_day.strftime("%Y-%m-%d")
-        
-        extract_dir, icaos = process_single_day(target_day)
-        
-        if not icaos:
-            print("No ICAOs found")
-            sys.exit(1)
-        
-        write_manifest(icaos, date_str)
-        
-        print(f"\nDone! Extract dir: {extract_dir}")
-        print(f"Total ICAOs: {len(icaos)}")
+        target_day = get_target_day()
+    
+    date_str = target_day.strftime("%Y-%m-%d")
+    
+    extract_dir, icaos = process_single_day(target_day)
+    
+    if not icaos:
+        print("No ICAOs found")
+        sys.exit(1)
+    
+    write_manifest(icaos, date_str)
+    
+    print(f"\nDone! Extract dir: {extract_dir}")
+    print(f"Total ICAOs: {len(icaos)}")
 
 
 if __name__ == "__main__":
