@@ -152,7 +152,6 @@ def main():
     csv_output = OUTPUT_DIR / "compressed" / args.date / f"part_{args.part_id}_{args.date}.csv"
     df_compressed.write_csv(csv_output)
     
-    print(df_compressed)
     print(f"Raw output: {output_path}" if output_path else "No raw output generated")
     print(f"Compressed parquet: {df_compressed_output}")
     print(f"Compressed CSV: {csv_output}")
