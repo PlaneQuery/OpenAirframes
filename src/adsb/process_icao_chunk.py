@@ -118,6 +118,7 @@ def process_chunk(
     
     return output_path if total_rows > 0 else None
 
+from pathlib import Path
 
 def main():
     parser = argparse.ArgumentParser(description="Process a single archive part for a day")
@@ -141,9 +142,20 @@ def main():
     
     from src.adsb.compress_adsb_to_aircraft_data import compress_parquet_part
     df_compressed = compress_parquet_part(args.part_id, args.date)
+    
+    # Write parquet
+    df_compressed_output = Path(OUTPUT_DIR) / "compressed" / f"part_{args.part_id}_{args.date}.parquet"
+    os.makedirs(df_compressed_output.parent, exist_ok=True)
+    df_compressed.write_parquet(df_compressed_output, compression='snappy')
+    
+    # Write CSV
+    csv_output = Path(OUTPUT_DIR) / "compressed" / f"part_{args.part_id}_{args.date}.csv"
+    df_compressed.write_csv(csv_output)
+    
     print(df_compressed)
-    # compress adsb parquet to aircraft
-    print(f"Output: {output_path}" if output_path else "No output generated")
+    print(f"Raw output: {output_path}" if output_path else "No raw output generated")
+    print(f"Compressed parquet: {df_compressed_output}")
+    print(f"Compressed CSV: {csv_output}")
 
 
 if __name__ == "__main__":
