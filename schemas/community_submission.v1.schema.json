@@ -61,6 +61,9 @@
         "icao_aircraft_type": {
           "type": "string"
         },
+        "internet": {
+          "type": "string"
+        },
         "manufacturer_icao": {
           "type": "string"
         },
@@ -77,6 +80,9 @@
           "type": "string"
         },
         "operator_icao": {
+          "type": "string"
+        },
+        "owner": {
           "type": "string"
         },
         "serial_number": {
