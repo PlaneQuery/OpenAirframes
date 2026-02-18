@@ -1,0 +1,40 @@
+[
+  {
+    "contributor_name": "JohnSmith.com",
+    "contributor_uuid": "2981c3ee-8712-5f96-84bf-732eda515a3f",
+    "creation_timestamp": "2026-02-18T22:18:11.349009+00:00",
+    "registration_number": "ZM146",
+    "tags": {
+      "citation_0": "https://assets.publishing.service.gov.uk/media/5c07a65f40f0b6705f11cf37/10389.pdf",
+      "icao_aircraft_type": "L1J",
+      "manufacturer_icao": "LOCKHEED MARTIN",
+      "manufacturer_name": "Lockheed-martin",
+      "model": "F-35B Lightning II",
+      "operator": "Royal Air Force",
+      "operator_callsign": "RAFAIR",
+      "operator_icao": "RFR",
+      "serial_number": "BK-12",
+      "type_code": "VF35"
+    },
+    "transponder_code_hex": "43C81C"
+  },
+  {
+    "contributor_name": "JohnSmith.com",
+    "contributor_uuid": "2981c3ee-8712-5f96-84bf-732eda515a3f",
+    "creation_timestamp": "2026-02-18T22:18:11.349009+00:00",
+    "registration_number": "ZM148",
+    "tags": {
+      "citation_0": "https://assets.publishing.service.gov.uk/media/5c07a65f40f0b6705f11cf37/10389.pdf",
+      "icao_aircraft_type": "L1J",
+      "manufacturer_icao": "LOCKHEED MARTIN",
+      "manufacturer_name": "Lockheed-martin",
+      "model": "F-35B Lightning II",
+      "operator": "Royal Air Force",
+      "operator_callsign": "RAFAIR",
+      "operator_icao": "RFR",
+      "serial_number": "BK-14",
+      "type_code": "VF35"
+    },
+    "transponder_code_hex": "43C811"
+  }
+]
