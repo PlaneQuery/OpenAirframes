@@ -54,7 +54,38 @@
       "additionalProperties": {
         "$ref": "#/$defs/tagValue"
       },
-      "properties": {}
+      "properties": {
+        "citation_0": {
+          "type": "string"
+        },
+        "icao_aircraft_type": {
+          "type": "string"
+        },
+        "manufacturer_icao": {
+          "type": "string"
+        },
+        "manufacturer_name": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        },
+        "operator_callsign": {
+          "type": "string"
+        },
+        "operator_icao": {
+          "type": "string"
+        },
+        "serial_number": {
+          "type": "string"
+        },
+        "type_code": {
+          "type": "string"
+        }
+      }
     }
   },
   "allOf": [
