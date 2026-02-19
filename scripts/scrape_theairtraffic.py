@@ -53,7 +53,7 @@ CATEGORY_COLUMNS = [
     (28, 29, {"owner_category_0": "celebrity", "owner_category_1": "motorsport"}),
     (31, 32, {"owner_category_0": "test_aircraft"}),
     # Russia & Ukraine: col 34=name, col 35 or 36 may have reg
-    (34, 35, {"owner_category_0": "celebrity"}),
+    (34, 35, {"owner_category_0": "russia_ukraine"}),
     (38, 39, {"owner_category_0": "celebrity", "category": "helicopter_or_blimp"}),
     (41, 42, {"owner_category_0": "other"}),
     (44, 45, {"owner_category_0": "government", "owner_category_1": "royal_family"}),
