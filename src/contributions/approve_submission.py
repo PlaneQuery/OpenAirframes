@@ -246,6 +246,20 @@ def process_submission(
     if schema_updated:
         schema_note = f"\n**Schema Updated:** Added new tags: `{', '.join(new_tags)}`\n"
     
+    # Truncate JSON preview to stay under GitHub's 65536 char body limit
+    max_json_preview = 50000
+    if len(content_json) > max_json_preview:
+        # Show first few entries as a preview
+        preview_entries = submissions[:10]
+        preview_json = json.dumps(preview_entries, indent=2, sort_keys=True)
+        json_section = (
+            f"### Submissions (showing 10 of {len(submissions)})\n"
+            f"```json\n{preview_json}\n```\n\n"
+            f"*Full submission ({len(submissions)} entries, {len(content_json):,} chars) is in the committed file.*"
+        )
+    else:
+        json_section = f"### Submissions\n```json\n{content_json}\n```"
+
     pr_body = f"""## Community Submission
 
 Adds {len(submissions)} submission(s) from @{author_username}.
@@ -257,10 +271,7 @@ Closes #{issue_number}
 
 ---
 
-### Submissions
-```json
-{content_json}
-```"""
+{json_section}"""
     
     pr = create_pull_request(
         title=f"Community submission: {filename}",
