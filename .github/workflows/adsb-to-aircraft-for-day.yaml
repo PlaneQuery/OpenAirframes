@@ -49,11 +49,38 @@ jobs:
           python -m src.adsb.download_and_list_icaos --date "$DATE"
           ls -lah data/output/adsb_archives/"$DATE" || true
 
-      - name: Upload archives
+      - name: Upload archive part 0
         uses: actions/upload-artifact@v4
         with:
-          name: adsb-archives-${{ inputs.date }}
-          path: data/output/adsb_archives/${{ inputs.date }}
+          name: adsb-archive-${{ inputs.date }}-part-0
+          path: data/output/adsb_archives/${{ inputs.date }}/${{ inputs.date }}_part_0.tar.gz
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload archive part 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: adsb-archive-${{ inputs.date }}-part-1
+          path: data/output/adsb_archives/${{ inputs.date }}/${{ inputs.date }}_part_1.tar.gz
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload archive part 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: adsb-archive-${{ inputs.date }}-part-2
+          path: data/output/adsb_archives/${{ inputs.date }}/${{ inputs.date }}_part_2.tar.gz
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload archive part 3
+        uses: actions/upload-artifact@v4
+        with:
+          name: adsb-archive-${{ inputs.date }}-part-3
+          path: data/output/adsb_archives/${{ inputs.date }}/${{ inputs.date }}_part_3.tar.gz
           retention-days: 1
           compression-level: 0
           if-no-files-found: error
@@ -79,11 +106,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Download archives
+      - name: Download archive part
         uses: actions/download-artifact@v4
         with:
-          name: adsb-archives-${{ inputs.date }}
+          name: adsb-archive-${{ inputs.date }}-part-${{ matrix.part_id }}
           path: data/output/adsb_archives/${{ inputs.date }}
+
+      - name: Verify archive
+        run: |
+          FILE="data/output/adsb_archives/${{ inputs.date }}/${{ inputs.date }}_part_${{ matrix.part_id }}.tar.gz"
+          ls -lah data/output/adsb_archives/${{ inputs.date }}/
+          if [ ! -f "$FILE" ]; then
+            echo "::error::Archive not found: $FILE"
+            exit 1
+          fi
+          echo "Verified: $(du -h "$FILE")"
 
       - name: Process part
         env:
