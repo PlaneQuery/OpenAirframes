@@ -194,7 +194,7 @@ def main():
     if triggered_runs and not args.dry_run:
         import json
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        runs_file = f"./triggered_runs_{timestamp}.json"
+        runs_file = f"./output/triggered_runs_{timestamp}.json"
         with open(runs_file, 'w') as f:
             json.dump({
                 'start_date': args.start_date,

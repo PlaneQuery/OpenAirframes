@@ -27,6 +27,33 @@ def _http_get_json(url: str, headers: dict[str, str]) -> dict:
     return json.loads(data.decode("utf-8"))
 
 
+def get_releases(repo: str = REPO, github_token: Optional[str] = None, per_page: int = 30) -> list[dict]:
+    """Get a list of releases from the repository."""
+    url = f"https://api.github.com/repos/{repo}/releases?per_page={per_page}"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "openairframes-downloader/1.0",
+    }
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
+
+    return _http_get_json(url, headers=headers)
+
+
+def get_release_assets_from_release_data(release_data: dict) -> list[ReleaseAsset]:
+    """Extract assets from a release data dictionary."""
+    assets = []
+    for a in release_data.get("assets", []):
+        assets.append(
+            ReleaseAsset(
+                name=a["name"],
+                download_url=a["browser_download_url"],
+                size=int(a.get("size", 0)),
+            )
+        )
+    return assets
+
+
 def get_latest_release_assets(repo: str = REPO, github_token: Optional[str] = None) -> list[ReleaseAsset]:
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     headers = {
@@ -37,16 +64,7 @@ def get_latest_release_assets(repo: str = REPO, github_token: Optional[str] = No
         headers["Authorization"] = f"Bearer {github_token}"
 
     payload = _http_get_json(url, headers=headers)
-    assets = []
-    for a in payload.get("assets", []):
-        assets.append(
-            ReleaseAsset(
-                name=a["name"],
-                download_url=a["browser_download_url"],
-                size=int(a.get("size", 0)),
-            )
-        )
-    return assets
+    return get_release_assets_from_release_data(payload)
 
 
 def pick_asset(
@@ -155,7 +173,8 @@ def download_latest_aircraft_adsb_csv(
     repo: str = REPO,
 ) -> Path:
     """
-    Download the latest openairframes_adsb_*.csv file from the latest GitHub release.
+    Download the latest openairframes_adsb_*.csv file from GitHub releases.
+    If the latest release doesn't have the file, searches previous releases.
 
     Args:
         output_dir: Directory to save the downloaded file (default: "downloads")
@@ -166,11 +185,25 @@ def download_latest_aircraft_adsb_csv(
         Path to the downloaded file
     """
     output_dir = Path(output_dir)
-    assets = get_latest_release_assets(repo, github_token=github_token)
-    asset = pick_asset(assets, name_regex=r"^openairframes_adsb_.*\.csv(\.gz)?$")
-    saved_to = download_asset(asset, output_dir / asset.name, github_token=github_token)
-    print(f"Downloaded: {asset.name} ({asset.size} bytes) -> {saved_to}")
-    return saved_to
+    
+    # Get multiple releases
+    releases = get_releases(repo, github_token=github_token, per_page=30)
+    
+    # Try each release until we find one with the matching asset
+    for release in releases:
+        assets = get_release_assets_from_release_data(release)
+        try:
+            asset = pick_asset(assets, name_regex=r"^openairframes_adsb_.*\.csv(\.gz)?$")
+            saved_to = download_asset(asset, output_dir / asset.name, github_token=github_token)
+            print(f"Downloaded: {asset.name} ({asset.size} bytes) -> {saved_to}")
+            return saved_to
+        except FileNotFoundError:
+            # This release doesn't have the matching asset, try the next one
+            continue
+    
+    raise FileNotFoundError(
+        f"No release in the last 30 releases has an asset matching 'openairframes_adsb_.*\\.csv(\\.gz)?$'"
+    )
 
 import polars as pl
 def get_latest_aircraft_adsb_csv_df():
@@ -212,3 +245,4 @@ def get_latest_aircraft_adsb_csv_df():
 
 if __name__ == "__main__":
     download_latest_aircraft_csv()
+    download_latest_aircraft_adsb_csv()

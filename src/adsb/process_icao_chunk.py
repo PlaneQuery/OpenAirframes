@@ -123,7 +123,16 @@ def main():
     print(f"Processing part {args.part_id} for {args.date}")
     
     # Get specific archive file for this part
-    archive_path = os.path.join(OUTPUT_DIR, "adsb_archives", args.date, f"{args.date}_part_{args.part_id}.tar.gz")
+    archive_dir = os.path.join(OUTPUT_DIR, "adsb_archives", args.date)
+    archive_path = os.path.join(archive_dir, f"{args.date}_part_{args.part_id}.tar.gz")
+    
+    if not os.path.isfile(archive_path):
+        print(f"ERROR: Archive not found: {archive_path}")
+        if os.path.isdir(archive_dir):
+            print(f"Files in {archive_dir}: {os.listdir(archive_dir)}")
+        else:
+            print(f"Directory does not exist: {archive_dir}")
+        sys.exit(1)
     
     # Extract and collect trace files
     trace_map = build_trace_file_map(archive_path)
