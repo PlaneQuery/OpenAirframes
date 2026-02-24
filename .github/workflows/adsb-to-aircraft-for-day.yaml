@@ -177,6 +177,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: openairframes_adsb-${{ inputs.date }}
-          path: data/output/openairframes_adsb_${{ inputs.date }}*
+          path: data/output/openairframes_adsb_*
           retention-days: 30
           if-no-files-found: error
