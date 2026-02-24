@@ -37,14 +37,31 @@ def main():
     if args.concat_with_latest_csv:
         print("Loading latest CSV from GitHub releases to concatenate with...")
         from src.get_latest_release import get_latest_aircraft_adsb_csv_df
-        df_latest_csv, csv_date = get_latest_aircraft_adsb_csv_df()
-        # Ensure column order matches before concatenating
-        df_latest_csv = df_latest_csv.select(CORRECT_ORDER_OF_COLUMNS)
-        from src.adsb.compress_adsb_to_aircraft_data import concat_compressed_dfs
-        df_final = concat_compressed_dfs(df_latest_csv, df)
-        df_final = df_final.select(CORRECT_ORDER_OF_COLUMNS)
-        final_csv_output_path = OUTPUT_DIR / f"openairframes_adsb_{csv_date}_{args.date}.csv.gz"
-        df_final.write_csv(final_csv_output_path, compression="gzip")
+        from datetime import datetime
+        
+        df_latest_csv, csv_start_date, csv_end_date = get_latest_aircraft_adsb_csv_df()
+        
+        # Compare dates: end_date is exclusive, so if csv_end_date > args.date, 
+        # the latest CSV already includes this day's data
+        csv_end_dt = datetime.strptime(csv_end_date, "%Y-%m-%d")
+        args_dt = datetime.strptime(args.date, "%Y-%m-%d")
+        
+        if csv_end_dt >= args_dt:
+            print(f"Latest CSV already includes data through {args.date} (end_date={csv_end_date} is exclusive)")
+            print("Writing latest CSV directly without concatenation to avoid duplicates")
+            final_csv_output_path = OUTPUT_DIR / f"openairframes_adsb_{csv_start_date}_{csv_end_date}.csv.gz"
+            df_latest_csv = df_latest_csv.select(CORRECT_ORDER_OF_COLUMNS)
+            df_latest_csv.write_csv(final_csv_output_path, compression="gzip")
+        else:
+            print(f"Concatenating latest CSV (through {csv_end_date}) with new data ({args.date})")
+            # Ensure column order matches before concatenating
+            df_latest_csv = df_latest_csv.select(CORRECT_ORDER_OF_COLUMNS)
+            from src.adsb.compress_adsb_to_aircraft_data import concat_compressed_dfs
+            df_final = concat_compressed_dfs(df_latest_csv, df)
+            df_final = df_final.select(CORRECT_ORDER_OF_COLUMNS)
+            final_csv_output_path = OUTPUT_DIR / f"openairframes_adsb_{csv_start_date}_{args.date}.csv.gz"
+            df_final.write_csv(final_csv_output_path, compression="gzip")
+        print(f"Final CSV written to {final_csv_output_path}")
 
 if __name__ == "__main__":
     main()

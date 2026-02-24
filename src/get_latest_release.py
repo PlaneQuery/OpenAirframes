@@ -207,7 +207,11 @@ def download_latest_aircraft_adsb_csv(
 
 import polars as pl
 def get_latest_aircraft_adsb_csv_df():
-    """Download and load the latest ADS-B CSV from GitHub releases."""
+    """Download and load the latest ADS-B CSV from GitHub releases.
+    
+    Returns:
+        tuple: (df, start_date, end_date) where dates are in YYYY-MM-DD format
+    """
     import re
     
     csv_path = download_latest_aircraft_adsb_csv()
@@ -231,15 +235,16 @@ def get_latest_aircraft_adsb_csv_df():
         if df[col].dtype == pl.Utf8:
             df = df.with_columns(pl.col(col).fill_null(""))
     
-    # Extract start date from filename pattern: openairframes_adsb_{start_date}_{end_date}.csv[.gz]
-    match = re.search(r"openairframes_adsb_(\d{4}-\d{2}-\d{2})_", str(csv_path))
+    # Extract start and end dates from filename pattern: openairframes_adsb_{start_date}_{end_date}.csv[.gz]
+    match = re.search(r"openairframes_adsb_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.csv", str(csv_path))
     if not match:
-        raise ValueError(f"Could not extract date from filename: {csv_path.name}")
+        raise ValueError(f"Could not extract dates from filename: {csv_path.name}")
     
-    date_str = match.group(1)
+    start_date = match.group(1)
+    end_date = match.group(2)
     print(df.columns)
     print(df.dtypes)
-    return df, date_str
+    return df, start_date, end_date
 
 
 

@@ -24,7 +24,7 @@ def read_all_submissions(community_dir: Path) -> list[dict]:
     """Read all JSON submissions from the community directory."""
     all_submissions = []
     
-    for json_file in sorted(community_dir.glob("*.json")):
+    for json_file in sorted(community_dir.glob("**/*.json")):
         try:
             with open(json_file) as f:
                 data = json.load(f)
