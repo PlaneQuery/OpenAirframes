@@ -1,0 +1,21 @@
+[
+  {
+    "contributor_name": "applesauce123",
+    "contributor_uuid": "2981c3ee-8712-5f96-84bf-732eda515a3f",
+    "creation_timestamp": "2026-02-13T16:58:21.863525+00:00",
+    "registration_number": "N12345",
+    "tags": {
+      "internet": "starlink"
+    }
+  },
+  {
+    "contributor_name": "applesauce123",
+    "contributor_uuid": "2981c3ee-8712-5f96-84bf-732eda515a3f",
+    "creation_timestamp": "2026-02-13T16:58:21.863525+00:00",
+    "tags": {
+      "internet": "viasat",
+      "owner": "John Doe"
+    },
+    "transponder_code_hex": "ABC123"
+  }
+]
