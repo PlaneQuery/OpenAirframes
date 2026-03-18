@@ -55,6 +55,9 @@
         "$ref": "#/$defs/tagValue"
       },
       "properties": {
+        "category": {
+          "type": "string"
+        },
         "citation_0": {
           "type": "string"
         },
@@ -77,6 +80,15 @@
           "type": "string"
         },
         "operator_icao": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "owner_category_0": {
+          "type": "string"
+        },
+        "owner_category_1": {
           "type": "string"
         },
         "serial_number": {
