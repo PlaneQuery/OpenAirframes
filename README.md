@@ -16,11 +16,19 @@ A daily release is created at **06:00 UTC** and includes:
 - **openairframes_community.csv**  
   All community submissions
 
+- **openairframes_adsb.csv**  
+  Airframes dataset derived from ADSB.lol network data. For each UTC day, a row is created for every icao observed in that day’s ADS-B messages, using registration data from [tar1090-db](https://github.com/wiedehopf/tar1090-db) (ADSBExchange & Mictronics).
+Example Usage:
+```python
+import pandas as pd
+url = "https://github.com/PlaneQuery/OpenAirframes/releases/download/openairframes-2026-03-18-main/openairframes_adsb_2024-01-01_2026-03-17.csv.gz" # 1GB
+df = pd.read_csv(url)
+df
+```
+![](docs/images/df_adsb_example_0.png)
 - **openairframes_faa.csv**  
   All [FAA registration data](https://www.faa.gov/licenses_certificates/aircraft_certification/aircraft_registry/releasable_aircraft_download) from 2023-08-16 to present (~260 MB)
 
-- **openairframes_adsb.csv**  
-  Airframe information derived from ADS-B messages on the [ADSB.lol](https://www.adsb.lol/) network, from 2026-02-12 to present (will be from 2024-01-01 soon). The airframe information originates from [mictronics aircraft database](https://www.mictronics.de/aircraft-database/) (~5 MB).
 
 - **ReleasableAircraft_{date}.zip**  
   A daily snapshot of the FAA database, which updates at **05:30 UTC**
