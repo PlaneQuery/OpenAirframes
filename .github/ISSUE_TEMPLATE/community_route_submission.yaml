@@ -1,0 +1,54 @@
+name: Community route submission (TXT)
+description: Submit one or more callsign routes to be reviewed and approved.
+title: "Community route submission: "
+labels:
+  - community-routes
+  - route-submission
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Submit route lines as text. Paste the routes directly, or drag-and-drop a `.txt` file.
+
+        **Format**
+        ```text
+        CALLSIGN ORIGIN DESTINATION
+        CALLSIGN ORIGIN WAYPOINT DESTINATION
+        ```
+
+        **Example**
+        ```text
+        BAW693 JTR LHR
+        UAE9393 DWC LGG ORD
+        BAW15 LHR SIN SYD
+        ```
+
+        Callsigns may contain 2-12 letters/numbers. Route codes may contain 3-5 letters/numbers. The automation normalizes tokens to uppercase.
+
+  - type: input
+    id: contributor_name
+    attributes:
+      label: Contributor Name
+      description: Your display name for attribution. Leave blank for no attribution. Max 150 characters.
+      placeholder: "e.g., JamesBerry.com or leave blank"
+    validations:
+      required: false
+
+  - type: textarea
+    id: route_data
+    attributes:
+      label: Route Data
+      description: Paste route text directly, OR drag-and-drop a .txt file here.
+      placeholder: |
+        BAW693 JTR LHR
+        UAE9393 DWC LGG ORD
+        BAW15 LHR SIN SYD
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (optional)
+    validations:
+      required: false

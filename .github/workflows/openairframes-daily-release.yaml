@@ -177,6 +177,32 @@ jobs:
           path: data/openairframes/openairframes_community_*.csv
           retention-days: 1
 
+  build-community-routes:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Run Community Routes release script
+        run: |
+          python -m src.contributions.create_daily_community_routes_release
+          ls -lah data/openairframes
+
+      - name: Upload Community Routes artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: community-routes-release
+          path: data/openairframes/openairframes_community_routes_*.csv
+          retention-days: 1
+
   build-adsbexchange-json:
     runs-on: ubuntu-latest
     if: github.event_name != 'schedule'
@@ -233,7 +259,7 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [resolve-dates, build-faa, adsb-to-aircraft, adsb-reduce, build-community, build-adsbexchange-json, build-mictronics-db]
+    needs: [resolve-dates, build-faa, adsb-to-aircraft, adsb-reduce, build-community, build-community-routes, build-adsbexchange-json, build-mictronics-db]
     if: github.event_name != 'schedule' && !cancelled()
     steps:
       - name: Check ADS-B workflow status
@@ -268,6 +294,12 @@ jobs:
           name: community-release
           path: artifacts/community
 
+      - name: Download Community Routes artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: community-routes-release
+          path: artifacts/community-routes
+
       - name: Download ADS-B Exchange JSON artifact
         uses: actions/download-artifact@v5
         with:
@@ -291,6 +323,8 @@ jobs:
           find artifacts/adsb -type f 2>/dev/null || echo "No files found in artifacts/adsb"
           echo "=== Community artifacts ==="
           find artifacts/community -type f 2>/dev/null || echo "No files found in artifacts/community"
+          echo "=== Community Routes artifacts ==="
+          find artifacts/community-routes -type f 2>/dev/null || echo "No files found in artifacts/community-routes"
           echo "=== ADS-B Exchange JSON artifacts ==="
           find artifacts/adsbexchange -type f 2>/dev/null || echo "No files found in artifacts/adsbexchange"
           echo "=== Mictronics DB artifacts ==="
@@ -317,6 +351,7 @@ jobs:
             CSV_FILE_ADSB=$(find artifacts/adsb -name "openairframes_adsb_*.csv.gz" -type f 2>/dev/null | head -1)
           fi
           CSV_FILE_COMMUNITY=$(find artifacts/community -name "openairframes_community_*.csv" -type f 2>/dev/null | head -1)
+          CSV_FILE_COMMUNITY_ROUTES=$(find artifacts/community-routes -name "openairframes_community_routes_*.csv" -type f 2>/dev/null | head -1)
           ZIP_FILE=$(find artifacts/faa -name "ReleasableAircraft_*.zip" -type f 2>/dev/null | head -1)
           JSON_FILE_ADSBX=$(find artifacts/adsbexchange -name "basic-ac-db_*.json.gz" -type f 2>/dev/null | head -1)
           ZIP_FILE_MICTRONICS=$(find artifacts/mictronics -name "mictronics-db_*.zip" -type f 2>/dev/null | head -1)
@@ -361,6 +396,7 @@ jobs:
             CSV_BASENAME_ADSB=$(basename "$CSV_FILE_ADSB")
           fi
           CSV_BASENAME_COMMUNITY=$(basename "$CSV_FILE_COMMUNITY" 2>/dev/null || echo "")
+          CSV_BASENAME_COMMUNITY_ROUTES=$(basename "$CSV_FILE_COMMUNITY_ROUTES" 2>/dev/null || echo "")
           ZIP_BASENAME=$(basename "$ZIP_FILE")
           JSON_BASENAME_ADSBX=$(basename "$JSON_FILE_ADSBX")
           ZIP_BASENAME_MICTRONICS=""
@@ -380,6 +416,8 @@ jobs:
           echo "csv_basename_adsb=$CSV_BASENAME_ADSB" >> "$GITHUB_OUTPUT"
           echo "csv_file_community=$CSV_FILE_COMMUNITY" >> "$GITHUB_OUTPUT"
           echo "csv_basename_community=$CSV_BASENAME_COMMUNITY" >> "$GITHUB_OUTPUT"
+          echo "csv_file_community_routes=$CSV_FILE_COMMUNITY_ROUTES" >> "$GITHUB_OUTPUT"
+          echo "csv_basename_community_routes=$CSV_BASENAME_COMMUNITY_ROUTES" >> "$GITHUB_OUTPUT"
           echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
           echo "zip_basename=$ZIP_BASENAME" >> "$GITHUB_OUTPUT"
           echo "json_file_adsbx=$JSON_FILE_ADSBX" >> "$GITHUB_OUTPUT"
@@ -392,6 +430,7 @@ jobs:
           echo "  FAA CSV: $CSV_FILE_FAA"
           echo "  ADSB CSV: $CSV_FILE_ADSB"
           echo "  Community CSV: $CSV_FILE_COMMUNITY"
+          echo "  Community Routes CSV: $CSV_FILE_COMMUNITY_ROUTES"
           echo "  ZIP: $ZIP_FILE"
           echo "  ADSBX JSON: $JSON_FILE_ADSBX"
           echo "  MICTRONICS ZIP: $ZIP_FILE_MICTRONICS"
@@ -416,6 +455,7 @@ jobs:
             - ${{ steps.meta.outputs.csv_basename_faa }}
             ${{ steps.meta.outputs.csv_basename_adsb && format('- {0}', steps.meta.outputs.csv_basename_adsb) || '' }}
             - ${{ steps.meta.outputs.csv_basename_community }}
+            - ${{ steps.meta.outputs.csv_basename_community_routes }}
             - ${{ steps.meta.outputs.zip_basename }}
             - ${{ steps.meta.outputs.json_basename_adsbx }}
             ${{ steps.meta.outputs.zip_basename_mictronics && format('- {0}', steps.meta.outputs.zip_basename_mictronics) || '' }}
@@ -423,6 +463,7 @@ jobs:
             ${{ steps.meta.outputs.csv_file_faa }}
             ${{ steps.meta.outputs.csv_file_adsb }}
             ${{ steps.meta.outputs.csv_file_community }}
+            ${{ steps.meta.outputs.csv_file_community_routes }}
             ${{ steps.meta.outputs.zip_file }}
             ${{ steps.meta.outputs.json_file_adsbx }}
             ${{ steps.meta.outputs.zip_file_mictronics }}

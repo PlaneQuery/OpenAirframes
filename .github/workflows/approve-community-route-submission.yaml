@@ -1,0 +1,44 @@
+name: Approve Community Route Submission
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  approve:
+    if: (github.event.label.name == 'approved' || github.event.label.name == 'validated-routes' || github.event.label.name == 'route-submission') && contains(github.event.issue.labels.*.name, 'approved') && contains(github.event.issue.labels.*.name, 'validated-routes') && contains(github.event.issue.labels.*.name, 'route-submission')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get issue author ID
+        id: author
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            core.setOutput('username', issue.user.login);
+            core.setOutput('user_id', issue.user.id);
+
+      - name: Process and create PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python -m src.contributions.approve_route_submission \
+            --issue-number ${{ github.event.issue.number }} \
+            --issue-body "$ISSUE_BODY" \
+            --author "${{ steps.author.outputs.username }}" \
+            --author-id ${{ steps.author.outputs.user_id }}

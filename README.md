@@ -16,6 +16,9 @@ A daily release is created at **06:00 UTC** and includes:
 - **openairframes_community.csv**  
   All community submissions
 
+- **openairframes_community_routes.csv**
+  Approved community route submissions. Each row maps a callsign to an origin, optional waypoints, and destination.
+
 - **openairframes_adsb.csv**  
   Airframes dataset derived from ADSB.lol network data. For each UTC day, a row is created for every icao observed in that day’s ADS-B messages, using registration data from [tar1090-db](https://github.com/wiedehopf/tar1090-db) (ADSBExchange & Mictronics).
 Example Usage:
@@ -37,12 +40,13 @@ df
 
 ## For Contributors
 
-Submit data via a [GitHub Issue](https://github.com/PlaneQuery/OpenAirframes/issues/new?template=community_submission.yaml) with your preferred attribution. Once approved, it will appear in the daily release. A leaderboard will be available in the future.
+Submit airframe data via a [GitHub Issue](https://github.com/PlaneQuery/OpenAirframes/issues/new?template=community_submission.yaml) with your preferred attribution. Submit route data via the [community route issue template](https://github.com/PlaneQuery/OpenAirframes/issues/new?template=community_route_submission.yaml). Once approved, it will appear in the daily release. A leaderboard will be available in the future.
 All data is valuable. Examples include:
 - Celebrity ownership (with citations)
 - Photos
 - Internet capability
 - Military aircraft information
+- Callsign routes
 - Unique facts (e.g., an airframe that crashed, performs aerobatics, etc.)
 
 Please try to follow the submission formatting guidelines. If you are struggling with them, that is fine—submit your data anyway and it will be formatted for you.

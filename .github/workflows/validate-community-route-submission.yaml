@@ -1,0 +1,36 @@
+name: Validate Community Route Submission
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions:
+  issues: write
+
+jobs:
+  validate:
+    if: contains(github.event.issue.labels.*.name, 'route-submission') && (github.event.action != 'labeled' || github.event.label.name == 'route-submission')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Save issue body to file
+        run: |
+          cat << 'ISSUE_BODY_EOF' > /tmp/issue_body.txt
+          ${{ github.event.issue.body }}
+          ISSUE_BODY_EOF
+
+      - name: Validate route submission
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python -m src.contributions.validate_route_submission \
+            --issue-body-file /tmp/issue_body.txt \
+            --issue-number ${{ github.event.issue.number }}
