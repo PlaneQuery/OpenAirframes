@@ -4,6 +4,10 @@ import polars as pl
 
 COLUMNS = ['dbFlags', 'ownOp', 'year', 'desc', 'aircraft_category', 'r', 't']
 
+# Positional contract for every released ADS-B artifact. polars concatenates by
+# position after .select(), so a divergent copy corrupts output without erroring.
+FINAL_COLUMN_ORDER = ['time', 'icao', 'r', 't', 'dbFlags', 'ownOp', 'year', 'desc', 'aircraft_category']
+
 
 def compress_df_polars(df: pl.DataFrame, icao: str) -> pl.DataFrame:
     """Compress a single ICAO group to its most informative row using Polars."""
@@ -164,7 +168,7 @@ def load_parquet_part(part_id: int, date: str) -> pl.DataFrame:
     print(f"Loading from parquet: {parquet_file}")
     df = pl.read_parquet(
         parquet_file,
-        columns=['time', 'icao', 'r', 't', 'dbFlags', 'ownOp', 'year', 'desc', 'aircraft_category']
+        columns=FINAL_COLUMN_ORDER
     )
     
     # Convert to timezone-naive datetime
