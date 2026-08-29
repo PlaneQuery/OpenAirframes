@@ -72,9 +72,14 @@ def add_issue_comment(issue_number: int, body: str) -> None:
     github_api_request("POST", f"/issues/{issue_number}/comments", {"body": body})
 
 
-def get_default_branch_sha() -> str:
-    """Get the SHA of the default branch (main)."""
-    ref = github_api_request("GET", "/git/ref/heads/main")
+def get_default_branch() -> str:
+    """Get the repository's default branch name."""
+    return github_api_request("GET", "")["default_branch"]
+
+
+def get_branch_sha(branch: str) -> str:
+    """Get the head SHA of a branch."""
+    ref = github_api_request("GET", f"/git/ref/heads/{branch}")
     return ref["object"]["sha"]
 
 
@@ -199,8 +204,8 @@ def process_submission(
     
     # Create branch
     branch_name = f"community-submission-{issue_number}"
-    default_sha = get_default_branch_sha()
-    create_branch(branch_name, default_sha)
+    base_branch = get_default_branch()
+    create_branch(branch_name, get_branch_sha(base_branch))
     
     # Create file
     commit_message = f"Add community submission from @{author_username} (closes #{issue_number})"
@@ -276,7 +281,7 @@ Closes #{issue_number}
     pr = create_pull_request(
         title=f"Community submission: {filename}",
         head=branch_name,
-        base="main",
+        base=base_branch,
         body=pr_body,
     )
     
