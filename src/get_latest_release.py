@@ -167,6 +167,43 @@ def get_latest_aircraft_faa_csv_df():
     return df, date_str
 
 
+def download_latest_aircraft_tc_csv(
+    output_dir: Path = Path("downloads"),
+    github_token: Optional[str] = None,
+    repo: str = REPO,
+) -> Path:
+    """
+    Download the latest openairframes_tc_*.csv file from the latest GitHub release.
+
+    Args:
+        output_dir: Directory to save the downloaded file (default: "downloads")
+        github_token: Optional GitHub token for authentication
+        repo: GitHub repository in format "owner/repo" (default: REPO)
+
+    Returns:
+        Path to the downloaded file
+    """
+    output_dir = Path(output_dir)
+    assets = get_latest_release_assets(repo, github_token=github_token)
+    asset = pick_asset(assets, name_regex=r"^openairframes_tc_.*\.csv$")
+    saved_to = download_asset(asset, output_dir / asset.name, github_token=github_token)
+    print(f"Downloaded: {asset.name} ({asset.size} bytes) -> {saved_to}")
+    return saved_to
+
+
+def get_latest_aircraft_tc_csv_df():
+    csv_path = download_latest_aircraft_tc_csv()
+    import pandas as pd
+    df = pd.read_csv(csv_path, dtype=str)
+    df = df.fillna("")
+    # Filename pattern: openairframes_tc_{start_date}_{end_date}.csv
+    match = re.search(r"openairframes_tc_(\d{4}-\d{2}-\d{2})_", str(csv_path))
+    if not match:
+        raise ValueError(f"Could not extract date from filename: {csv_path.name}")
+
+    return df, match.group(1)
+
+
 def download_latest_aircraft_adsb_csv(
     output_dir: Path = Path("downloads"),
     github_token: Optional[str] = None,
