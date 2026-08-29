@@ -9,8 +9,9 @@ Never fix this class of bug by escaping, sanitizing, or renaming the delimiter �
 
 ## Run everything from the repo root
 
-`src/create_daily_faa_release.py` must be invoked as a **script** (`python src/create_daily_faa_release.py`).
-It uses bare sibling imports, so `-m src.create_daily_faa_release` raises `ModuleNotFoundError`.
+`src/create_daily_faa_release.py` and `src/create_daily_tc_release.py` must be invoked as **scripts**
+(`python src/create_daily_faa_release.py`). They use bare sibling imports, so `-m` raises
+`ModuleNotFoundError`.
 Everything under `src/adsb/` and `src/contributions/` is the opposite — `python -m`, package-relative.
 
 Output paths are CWD-relative.
@@ -41,6 +42,24 @@ matrices. Reason about the YAML statically.
   fields not a subset of another row's, tie-broken by signature frequency. It is not a registry record.
 - HTTP 404 is terminal in the release fetch. Restoring the retry makes the Dec-31 next-year-repo
   probe stall ~45 minutes on a repo that does not exist yet.
+
+## Attribution is a licence condition, not a courtesy
+
+`NOTICE` carries the terms that make redistributable sources redistributable, and it is uploaded as
+a release asset so it travels with the data. Deleting or editing an entry removes the permission for
+the corresponding asset.
+
+Transport Canada requires **both** its notices — reproduction and value-added — to reach the
+consumer together. `NOTICE` must also survive the `create-release` sparse checkout; it is listed
+there explicitly.
+
+Before adding any registry, check redistribution, not just access. A public licence (CC BY, an
+open-government licence) travels to this project; a bilateral permission granted to a different
+project does not. Non-commercial-only sources are incompatible with the MIT-licensed releases —
+that rules out Taiwan, Estonia and Chile even though they are cleared for private use elsewhere.
+
+Owner mailing addresses in the CCARCS export are dropped during ingestion; only name, province and
+country are published.
 
 ## Fork and upstream
 
