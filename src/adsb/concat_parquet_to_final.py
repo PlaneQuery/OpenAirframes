@@ -2,6 +2,7 @@ from pathlib import Path
 import polars as pl
 import argparse
 import os
+import sys
 
 from src.adsb.compress_adsb_to_aircraft_data import FINAL_COLUMN_ORDER
 
@@ -19,7 +20,7 @@ def main():
     parquet_files = sorted(date_dir.glob("*.parquet"))
     df = None
     if parquet_files: # TODO: This logic could be updated slightly.
-        print(f"No parquet files found in {date_dir}")
+        print(f"Found {len(parquet_files)} parquet part(s) in {date_dir}")
 
         frames = [pl.read_parquet(p) for p in parquet_files]
         df = pl.concat(frames, how="vertical", rechunk=True)
@@ -34,8 +35,13 @@ def main():
         csv_output_path = OUTPUT_DIR / f"openairframes_adsb_{args.date}.csv.gz"
         print(f"Writing combined csv.gz to {csv_output_path} with {df.height} rows")
         df.write_csv(csv_output_path, compression="gzip")
+    elif not args.concat_with_latest_csv:
+        # Nothing to merge and no release to fall back on: exiting 0 here would let the
+        # caller mistake "produced nothing" for "succeeded".
+        print(f"ERROR: No parquet files found in {date_dir} and --concat_with_latest_csv not set")
+        sys.exit(1)
     else:
-        print(f"No parquet files found in {date_dir}")
+        print(f"No parquet files found in {date_dir}; falling back to the latest released CSV")
 
     if args.concat_with_latest_csv:
         print("Loading latest CSV from GitHub releases to concatenate with...")
