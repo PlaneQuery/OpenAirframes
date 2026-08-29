@@ -141,7 +141,7 @@ def load_parquet_part(part_id: int, date: str) -> pl.DataFrame:
     """Load a single parquet part file for a date.
     
     Args:
-        part_id: Part ID (e.g., 1, 2, 3)
+        part_id: Part ID (0-indexed, e.g. 0, 1, 2, 3)
         date: Date string in YYYY-MM-DD format
     
     Returns:
