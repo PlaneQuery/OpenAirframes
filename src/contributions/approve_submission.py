@@ -21,7 +21,7 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 
-from .schema import extract_json_from_issue_body, extract_contributor_name_from_issue_body, parse_and_validate, load_schema, SCHEMAS_DIR
+from .schema import extract_json_from_issue_body, extract_contributor_name_from_issue_body, parse_and_validate, load_schema, get_schema_path
 from .contributor import (
     generate_contributor_uuid,
     generate_submission_filename,
@@ -206,7 +206,7 @@ def process_submission(
     commit_message = f"Add community submission from @{author_username} (closes #{issue_number})"
     create_or_update_file(file_path, content_json, commit_message, branch_name)
     
-    # Update schema with any new tags (modifies v1 in place)
+    # Update schema with any new tags (rewrites the resolved schema version in place)
     schema_updated = False
     new_tags = []
     try:
@@ -232,7 +232,7 @@ def process_submission(
             schema_json = json.dumps(updated_schema, indent=2) + "\n"
             
             create_or_update_file(
-                "schemas/community_submission.v1.schema.json",
+                f"schemas/{get_schema_path().name}",
                 schema_json,
                 f"Update schema with new tags: {', '.join(new_tags)}",
                 branch_name
