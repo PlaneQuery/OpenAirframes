@@ -93,6 +93,19 @@ def _fetch_releases_from_repo(year: str, version_date: str) -> list:
                         else:
                             print(f"Giving up after {max_retries} attempts")
                             return releases
+            except urllib.error.HTTPError as e:
+                # 404 means the repo/page does not exist. Retrying cannot change that,
+                # and 10 attempts x 5 min burns ~45 min of runner time to learn nothing.
+                if e.code == 404:
+                    print(f"Not found (HTTP 404): {BASE_URL}?page={page} - not retrying")
+                    return releases
+                print(f"Request exception (attempt {attempt}/{max_retries}): {e}")
+                if attempt < max_retries:
+                    print(f"Waiting {retry_delay} seconds before retry")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"Giving up after {max_retries} attempts")
+                    return releases
             except Exception as e:
                 print(f"Request exception (attempt {attempt}/{max_retries}): {e}")
                 if attempt < max_retries:
