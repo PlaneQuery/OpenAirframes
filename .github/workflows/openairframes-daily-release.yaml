@@ -2,7 +2,7 @@ name: openairframes-daily-release
 
 on:
   schedule:
-    # 6:00pm UTC every day - runs on default branch, triggers both
+    # 06:00 UTC every day - runs on default branch, triggers both
     - cron: "0 06 * * *"
   workflow_dispatch:
     inputs:

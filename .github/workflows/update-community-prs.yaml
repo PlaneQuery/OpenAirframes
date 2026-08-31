@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'community/**'
-      - 'schemas/community_submission.v1.schema.json'
+      - 'schemas/**'
 
 permissions:
   contents: write

@@ -23,24 +23,17 @@ jobs:
       - name: Install dependencies
         run: pip install jsonschema
 
-      - name: Debug issue body
-        run: |
-          echo "=== Issue Body ==="
-          cat << 'ISSUE_BODY_EOF'
-          ${{ github.event.issue.body }}
-          ISSUE_BODY_EOF
-
       - name: Save issue body to file
-        run: |
-          cat << 'ISSUE_BODY_EOF' > /tmp/issue_body.txt
-          ${{ github.event.issue.body }}
-          ISSUE_BODY_EOF
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: printf '%s' "$ISSUE_BODY" > "$RUNNER_TEMP/issue_body.txt"
 
       - name: Validate submission
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           python -m src.contributions.validate_submission \
-            --issue-body-file /tmp/issue_body.txt \
-            --issue-number ${{ github.event.issue.number }}
+            --issue-body-file "$RUNNER_TEMP/issue_body.txt" \
+            --issue-number "$ISSUE_NUMBER"

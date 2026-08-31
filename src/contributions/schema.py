@@ -12,9 +12,6 @@ except ImportError:
 
 SCHEMAS_DIR = Path(__file__).parent.parent.parent / "schemas"
 
-# For backwards compatibility
-SCHEMA_PATH = SCHEMAS_DIR / "community_submission.v1.schema.json"
-
 
 def get_latest_schema_version() -> int:
     """
