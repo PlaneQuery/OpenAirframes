@@ -43,22 +43,30 @@ matrices. Reason about the YAML statically.
 - HTTP 404 is terminal in the release fetch. Restoring the retry makes the Dec-31 next-year-repo
   probe stall ~45 minutes on a repo that does not exist yet.
 
-## Attribution is a licence condition, not a courtesy
+## Never edit or drop a `NOTICE` entry
 
-`NOTICE` carries the terms that make redistributable sources redistributable, and it is uploaded as
-a release asset so it travels with the data. Deleting or editing an entry removes the permission for
-the corresponding asset.
+Each entry is the permission that makes its asset redistributable; removing one removes the
+permission. `NOTICE` is validated as a **required** release file and is listed in the
+`create-release` sparse checkout — keep both. Transport Canada requires its two notices,
+reproduction and value-added, to reach the consumer together.
 
-Transport Canada requires **both** its notices — reproduction and value-added — to reach the
-consumer together. `NOTICE` must also survive the `create-release` sparse checkout; it is listed
-there explicitly.
+`LICENSE` is MIT and covers **code only**. It makes no claim over released data, and neither may
+you — an asset derived from a public-domain source is not itself public domain.
 
-Before adding any registry, check redistribution, not just access. A public licence (CC BY, an
-open-government licence) travels to this project; a bilateral permission granted to a different
-project does not. Non-commercial-only sources are incompatible with the MIT-licensed releases —
-that rules out Taiwan, Estonia and Chile even though they are cleared for private use elsewhere.
+Before adding any registry, judge redistribution, not access, in this order:
 
-Owner mailing addresses in the CCARCS export are dropped during ingestion; only name, province and
+1. **A public licence travels; a bilateral permission does not.** Written permission granted to
+   another project or person is not a licence to this one. That alone disqualifies Taiwan, Estonia
+   and Chile, whatever their commercial terms say.
+2. **Non-commercial-only conditions are a second, independent bar** — they conflict with how these
+   releases are consumed. Do not treat a source clearing this bar as cleared overall; rule 1 still
+   applies. Taiwan is licensed OGDL v1.0, an open licence: its restriction is bilateral, not licence-borne.
+
+CCARCS `ACTIVE_FLAG` does **not** mean "current owner": 1,932 currently-Registered marks carry only
+`I` parties, and those rows are the `MAIL_RECIPIENT`. Prefer `A` parties where a mark has any, fall
+back to all of them otherwise. Filtering on `A` alone publishes registered aircraft with no owner.
+
+Owner mailing addresses (street, city, postal code, care-of) are dropped; name, type, province and
 country are published.
 
 ## Fork and upstream

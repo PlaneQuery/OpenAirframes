@@ -4,7 +4,8 @@ OpenAirframes — Data Source Notices
 The LICENSE file covers the *code* in this repository. It does not cover the
 *data* published in releases. Several upstream registries permit redistribution
 only on condition that specific notices travel with the data. Those conditions
-are reproduced below and must ship alongside any redistributed release asset.
+are reproduced below. This file is published as an asset on every release; anyone
+redistributing a release asset further must carry the corresponding notice with it.
 
 Removing or altering a notice in this file removes the permission that makes the
 corresponding asset redistributable.
@@ -15,8 +16,10 @@ Transport Canada — Canadian Civil Aircraft Register (CCARCS)
 Asset: openairframes_tc_*.csv
 Source: https://wwwapps.tc.gc.ca/saf-sec-sur/2/ccarcs-riacc/download/ccarcsdb.zip
 
-The Government of Canada open licence requires both of the following notices,
-verbatim, and requires that they reach the consumer together:
+Redistribution is permitted under the Government of Canada terms recorded for this
+dataset. They require both of the following notices, verbatim, and require that the
+two reach the consumer together. The governing instrument is not published on the
+CCARCS download page, so no licence name or URL is asserted here.
 
     Reproduced and distributed with the permission of the Government of Canada.
 
@@ -32,12 +35,16 @@ code, care-of) are dropped during ingestion and are not redistributed.
 
 FAA — Releasable Aircraft Database
 -----------------------------------
-Asset: openairframes_faa_*.csv, ReleasableAircraft_*.zip
 Source: https://registry.faa.gov/database/ReleasableAircraft.zip
 
-A work of the United States federal government, not subject to copyright
-protection in the United States (17 U.S.C. § 105). No notice is required; the
-source is credited here for provenance.
+ReleasableAircraft_*.zip is redistributed unmodified. It is a work of the United
+States federal government, not subject to copyright protection in the United
+States (17 U.S.C. § 105). No notice is required; it is credited for provenance.
+
+openairframes_faa_*.csv is a derived product built by this repository —
+normalized, joined, deduplicated, and extended with an identifier this project
+defines. Section 105 disclaims copyright in the government's own work and says
+nothing about a derivative, so no claim is made here about the CSV's status.
 
 
 Other redistributed assets
