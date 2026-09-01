@@ -1,6 +1,7 @@
 from pathlib import Path
 import csv
 import io
+import re
 import zipfile
 
 import pandas as pd
@@ -37,30 +38,49 @@ CARSOWNR_COLUMNS = [
 OWNER_PII_COLUMNS = ["STREET_NAME", "STREET_NAME2", "CITY", "POSTAL_CODE", "CARE_OF"]
 
 
-def _read_ccarcs_entry(zip_path: Path, entry: str, columns: list[str]) -> pd.DataFrame:
-    """Read one headerless CCARCS export into a DataFrame, dropping the Oracle footer.
+FOOTER_RE = re.compile(r"\s*(\d+) rows selected\.\s*")
 
-    The export ends with a bare "N rows selected." line and a blank line; both are
-    narrower than the declared column count. Any *other* width mismatch is silent
-    field loss, so it raises instead.
+# Canada's register is ~35k aircraft. Any parse yielding less than this means the
+# export was truncated upstream, which must not be published as a real snapshot.
+MIN_EXPECTED_ROWS = 1000
+
+
+def _read_ccarcs_entry(zip_path: Path, entry: str, columns: list[str]) -> pd.DataFrame:
+    """Read one headerless CCARCS export into a DataFrame.
+
+    Raises:
+        ValueError: on any row whose width is neither the declared column count nor a
+            blank/footer line, on a missing or disagreeing "N rows selected." footer, or
+            on a row count below MIN_EXPECTED_ROWS.
     """
     with zipfile.ZipFile(zip_path) as z:
         text = z.read(entry).decode("latin1")
 
     rows = []
-    ragged = 0
-    for row in csv.reader(io.StringIO(text)):
+    declared = None
+    # newline="" so a CRLF export does not leave \r on the final field of every row.
+    for row in csv.reader(io.StringIO(text, newline="")):
         if len(row) == len(columns):
             rows.append([cell.strip() for cell in row])
-        elif len(row) <= 1:
-            ragged += 1  # footer or trailing blank
-        else:
-            raise ValueError(
-                f"{entry}: row with {len(row)} fields, expected {len(columns)}"
-            )
+            continue
+        if not row or not any(cell.strip() for cell in row):
+            continue  # trailing blank line
+        match = FOOTER_RE.fullmatch(row[0]) if len(row) == 1 else None
+        if match:
+            declared = int(match.group(1))
+            continue
+        raise ValueError(
+            f"{entry}: row with {len(row)} fields, expected {len(columns)}: {row[:3]!r}"
+        )
 
-    if ragged > 2:
-        raise ValueError(f"{entry}: {ragged} ragged rows, expected at most 2")
+    # The spool footer is a free checksum from the source; a short export is otherwise
+    # indistinguishable from a genuinely smaller register.
+    if declared is None:
+        raise ValueError(f"{entry}: no 'N rows selected.' footer; export is truncated")
+    if declared != len(rows):
+        raise ValueError(f"{entry}: footer declares {declared} rows, parsed {len(rows)}")
+    if len(rows) < MIN_EXPECTED_ROWS:
+        raise ValueError(f"{entry}: only {len(rows)} rows, expected >= {MIN_EXPECTED_ROWS}")
 
     return pd.DataFrame(rows, columns=columns)
 
@@ -68,8 +88,9 @@ def _read_ccarcs_entry(zip_path: Path, entry: str, columns: list[str]) -> pd.Dat
 def tc_full_registration(mark: str) -> str:
     """Expand a trimmed CCARCS mark into the full Canadian registration.
 
-    Three-character marks are vintage CF- registrations; everything else takes the
-    modern C- prefix.
+    CCARCS stores the bare mark in both MARK and TRIMMED_MARK, so the prefix has to be
+    reconstructed: three-character marks are vintage CF- registrations, everything else
+    takes the modern C- prefix. Returns "" for a blank mark.
     """
     mark = (mark or "").strip().upper()
     if not mark:
@@ -78,20 +99,38 @@ def tc_full_registration(mark: str) -> str:
 
 
 def binary_to_hex(binary: str) -> str:
-    """Convert a 24-bit Mode S binary string to uppercase hex."""
+    """Convert a 24-bit Mode S binary string to a 6-digit uppercase hex address.
+
+    Returns "" for empty, non-binary, or non-24-bit input. Width is checked because
+    this column is the join key against ADS-B data: a short field would otherwise
+    zero-pad into a plausible address belonging to a different aircraft.
+    """
     binary = (binary or "").strip()
-    if not binary or any(c not in "01" for c in binary):
+    if len(binary) != 24 or any(c not in "01" for c in binary):
         return ""
     return f"{int(binary, 2):06X}"
 
 
 def _merge_owners(df_ownr: pd.DataFrame) -> pd.DataFrame:
-    """Collapse one row per registered party into one row per mark.
+    """Collapse the active registered parties for each mark into a single row.
 
     A co-owned mark repeats with a different party each time; keeping only the mail
-    recipient would silently drop the rest. Each field is deduplicated independently
-    and blanks are skipped, so values are not index-parallel across columns.
+    recipient would silently drop the rest.
+
+    Each field is deduplicated and blank-skipped independently, so the values are NOT
+    index-parallel: a mark with three owners can emit three names but one province.
+    Consumers must not split on ", " and zip the columns together.
     """
+    # ACTIVE_FLAG is "A"/"I", but "I" does not mean "former owner": 1,932 currently
+    # Registered marks carry only "I" parties, and those rows are the MAIL_RECIPIENT.
+    # So prefer active parties where a mark has any, and fall back to all of them
+    # rather than publishing a registered aircraft with no owner at all.
+    active = df_ownr[df_ownr["ACTIVE_FLAG"].str.upper() == "A"]
+    marks_with_active = set(active["TRIMMED_MARK"])
+    df_ownr = pd.concat([
+        active,
+        df_ownr[~df_ownr["TRIMMED_MARK"].isin(marks_with_active)],
+    ])
     def join_unique(series: pd.Series) -> str:
         seen = []
         for value in series:
@@ -100,16 +139,20 @@ def _merge_owners(df_ownr: pd.DataFrame) -> pd.DataFrame:
                 seen.append(value)
         return ", ".join(seen)
 
+    def count_distinct(series: pd.Series) -> int:
+        return len({v.strip() for v in series if v and v.strip()})
+
     grouped = df_ownr.groupby("TRIMMED_MARK", sort=False).agg(
         owner_name=("FULL_NAME", join_unique),
         owner_province_or_state=("PROVINCE_OR_STATE_E", join_unique),
         owner_country=("COUNTRY_E", join_unique),
         owner_type=("TYPE_OF_OWNER_E", join_unique),
-        owner_party_count=("FULL_NAME", "size"),
+        owner_party_count=("FULL_NAME", count_distinct),
     ).reset_index()
 
-    # A party row states its own type ("Individual"); that stops being true of the
-    # mark once several parties share it.
+    # A party row states its own type ("Individual"); that stops being true of the mark
+    # once several parties share it. Counting distinct names rather than rows keeps this
+    # consistent with owner_name, which is also deduplicated.
     grouped.loc[grouped["owner_party_count"] > 1, "owner_type"] = "Co-owner"
     return grouped
 
@@ -159,6 +202,8 @@ def convert_tc_ccarcs_to_df(zip_path: Path, date: str) -> pd.DataFrame:
         "modified_date": df["MODIFIED_DATE"],
     })
 
+    # Position matches the FAA frame (after registration_number). Ordering is cosmetic:
+    # concat_faa_historical_df reindexes df_new to the base's columns before merging.
     out.insert(3, "openairframes_id", (
         normalize(out["aircraft_manufacturer"])
         + "|"
