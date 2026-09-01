@@ -42,14 +42,32 @@ jobs:
               ref: 'develop'
             });
 
-  build-faa:
-    runs-on: ubuntu-24.04-arm
+  # One thread per registry. Adding a source is one matrix entry plus
+  # src/create_daily_<source>_release.py; join-registry picks it up by artifact pattern.
+  build-registry-source:
     if: github.event_name != 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - source: faa
+            required: true
+          - source: tc
+            required: false
+    uses: ./.github/workflows/registry-source.yaml
+    with:
+      source: ${{ matrix.source }}
+      date: ${{ inputs.date }}
+      required: ${{ matrix.required }}
+
+  join-registry:
+    needs: build-registry-source
+    if: always() && github.event_name != 'schedule'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -61,20 +79,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run FAA release script
-        run: |
-          python src/create_daily_faa_release.py ${{ inputs.date && format('--date {0}', inputs.date) || '' }}
-          ls -lah data/faa_releasable
-          ls -lah data/openairframes
+      - name: Download every source thread
+        uses: actions/download-artifact@v4
+        with:
+          pattern: registry-*
+          path: artifacts/registry
+          merge-multiple: true
 
-      - name: Upload FAA artifacts
+      - name: Join sources into one registry
+        env:
+          RUN_DATE: ${{ inputs.date }}
+        run: |
+          python src/build_registry.py --input-dir artifacts/registry ${RUN_DATE:+--date "$RUN_DATE"}
+
+      - name: Upload registry
         uses: actions/upload-artifact@v4
         with:
-          name: faa-release
+          name: registry-union
           path: |
-            data/openairframes/openairframes_faa_*.csv
-            data/faa_releasable/ReleasableAircraft_*.zip
+            data/openairframes/openairframes_registry_*.csv
+            artifacts/registry/openairframes_faa_*.csv
+            artifacts/registry/ReleasableAircraft_*.zip
           retention-days: 1
+          if-no-files-found: error
 
   resolve-dates:
     runs-on: ubuntu-latest
@@ -233,7 +260,7 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [resolve-dates, build-faa, adsb-to-aircraft, adsb-reduce, build-community, build-adsbexchange-json, build-mictronics-db]
+    needs: [resolve-dates, join-registry, adsb-to-aircraft, adsb-reduce, build-community, build-adsbexchange-json, build-mictronics-db]
     if: github.event_name != 'schedule' && !cancelled()
     steps:
       - name: Check ADS-B workflow status
@@ -246,12 +273,13 @@ jobs:
         with:
           sparse-checkout: |
             .github
+            NOTICE
           sparse-checkout-cone-mode: false
 
-      - name: Download FAA artifacts
+      - name: Download joined registry
         uses: actions/download-artifact@v5
         with:
-          name: faa-release
+          name: registry-union
           path: artifacts/faa
 
       - name: Download ADS-B artifacts
@@ -311,6 +339,7 @@ jobs:
           
           # Find files from artifacts using find (handles nested structures)
           CSV_FILE_FAA=$(find artifacts/faa -name "openairframes_faa_*.csv" -type f 2>/dev/null | head -1)
+          CSV_FILE_REGISTRY=$(find artifacts/faa -name "openairframes_registry_*.csv" -type f 2>/dev/null | head -1)
           # Prefer concatenated file (with date range) over single-day file
           CSV_FILE_ADSB=$(find artifacts/adsb -name "openairframes_adsb_*_*.csv.gz" -type f 2>/dev/null | head -1)
           if [ -z "$CSV_FILE_ADSB" ]; then
@@ -331,6 +360,14 @@ jobs:
           fi
           if [ -z "$JSON_FILE_ADSBX" ] || [ ! -f "$JSON_FILE_ADSBX" ]; then
             MISSING_FILES="$MISSING_FILES ADSBX_JSON"
+          fi
+          if [ -z "$CSV_FILE_REGISTRY" ] || [ ! -f "$CSV_FILE_REGISTRY" ]; then
+            MISSING_FILES="$MISSING_FILES REGISTRY_CSV"
+          fi
+          # NOTICE carries the terms that make each asset redistributable. Shipping data
+          # without it removes the permission, so it is required rather than optional.
+          if [ ! -f NOTICE ]; then
+            MISSING_FILES="$MISSING_FILES NOTICE"
           fi
           
           # Optional files - warn but don't fail
@@ -369,12 +406,14 @@ jobs:
           fi
           
           if [ -n "$OPTIONAL_MISSING" ]; then
-            echo "WARNING: Optional files missing:$OPTIONAL_MISSING (will continue without them)"
+            echo "::warning title=Missing optional release assets::$OPTIONAL_MISSING"
           fi
           
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "csv_file_faa=$CSV_FILE_FAA" >> "$GITHUB_OUTPUT"
+          echo "csv_file_registry=$CSV_FILE_REGISTRY" >> "$GITHUB_OUTPUT"
+          echo "csv_basename_registry=$(basename "$CSV_FILE_REGISTRY")" >> "$GITHUB_OUTPUT"
           echo "csv_basename_faa=$CSV_BASENAME_FAA" >> "$GITHUB_OUTPUT"
           echo "csv_file_adsb=$CSV_FILE_ADSB" >> "$GITHUB_OUTPUT"
           echo "csv_basename_adsb=$CSV_BASENAME_ADSB" >> "$GITHUB_OUTPUT"
@@ -413,6 +452,7 @@ jobs:
             Automated daily snapshot generated at 06:00 UTC for ${{ steps.meta.outputs.date }}.
 
             Assets:
+            - ${{ steps.meta.outputs.csv_basename_registry }}
             - ${{ steps.meta.outputs.csv_basename_faa }}
             ${{ steps.meta.outputs.csv_basename_adsb && format('- {0}', steps.meta.outputs.csv_basename_adsb) || '' }}
             - ${{ steps.meta.outputs.csv_basename_community }}
@@ -420,7 +460,9 @@ jobs:
             - ${{ steps.meta.outputs.json_basename_adsbx }}
             ${{ steps.meta.outputs.zip_basename_mictronics && format('- {0}', steps.meta.outputs.zip_basename_mictronics) || '' }}
           files: |
+            ${{ steps.meta.outputs.csv_file_registry }}
             ${{ steps.meta.outputs.csv_file_faa }}
+            NOTICE
             ${{ steps.meta.outputs.csv_file_adsb }}
             ${{ steps.meta.outputs.csv_file_community }}
             ${{ steps.meta.outputs.zip_file }}
