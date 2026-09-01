@@ -29,8 +29,10 @@ CCARCS download page, so no licence name or URL is asserted here.
     construed as constituting an endorsement by the Government of Canada of our
     product.
 
-Owner mailing addresses published in the CCARCS export (street, city, postal
-code, care-of) are dropped during ingestion and are not redistributed.
+Registered-owner mailing addresses are redistributed, matching the registrant
+addresses the FAA asset already carries. Because CCARCS lists one row per party,
+the published address is that of the single designated mail recipient rather than
+a merge across co-owners.
 
 
 FAA — Releasable Aircraft Database

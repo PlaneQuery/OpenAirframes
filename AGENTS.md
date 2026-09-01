@@ -66,8 +66,10 @@ CCARCS `ACTIVE_FLAG` does **not** mean "current owner": 1,932 currently-Register
 `I` parties, and those rows are the `MAIL_RECIPIENT`. Prefer `A` parties where a mark has any, fall
 back to all of them otherwise. Filtering on `A` alone publishes registered aircraft with no owner.
 
-Owner mailing addresses (street, city, postal code, care-of) are dropped; name, type, province and
-country are published.
+Owner mailing addresses **are** published, matching the `registrant_*` address the FAA asset already
+carries — the two sources must not diverge on this. Addresses are per-party, so they come from the
+single `MAIL_RECIPIENT == "Y"` row (exactly one per mark) and are never merged across co-owners; only
+name, type, province and country are merged lists.
 
 ## Fork and upstream
 

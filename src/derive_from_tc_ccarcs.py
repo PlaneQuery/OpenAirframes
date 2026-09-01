@@ -34,8 +34,16 @@ CARSOWNR_COLUMNS = [
     "OWNER_NAME_OLD_FORMAT", "MAIL_RECIPIENT", "TRIMMED_MARK",
 ]
 
-# Owner mailing addresses are dropped rather than republished; see NOTICE.
-OWNER_PII_COLUMNS = ["STREET_NAME", "STREET_NAME2", "CITY", "POSTAL_CODE", "CARE_OF"]
+# Mailing address of the single designated recipient, matching the registrant_* address
+# the FAA build already publishes. Addresses are per-party, so they are taken from the one
+# MAIL_RECIPIENT row rather than merged across co-owners.
+OWNER_ADDRESS_COLUMNS = {
+    "STREET_NAME": "owner_street_1",
+    "STREET_NAME2": "owner_street_2",
+    "CITY": "owner_city",
+    "POSTAL_CODE": "owner_postal_code",
+    "CARE_OF": "owner_care_of",
+}
 
 
 FOOTER_RE = re.compile(r"\s*(\d+) rows selected\.\s*")
@@ -125,6 +133,7 @@ def _merge_owners(df_ownr: pd.DataFrame) -> pd.DataFrame:
     # Registered marks carry only "I" parties, and those rows are the MAIL_RECIPIENT.
     # So prefer active parties where a mark has any, and fall back to all of them
     # rather than publishing a registered aircraft with no owner at all.
+    all_parties = df_ownr
     active = df_ownr[df_ownr["ACTIVE_FLAG"].str.upper() == "A"]
     marks_with_active = set(active["TRIMMED_MARK"])
     df_ownr = pd.concat([
@@ -154,14 +163,25 @@ def _merge_owners(df_ownr: pd.DataFrame) -> pd.DataFrame:
     # once several parties share it. Counting distinct names rather than rows keeps this
     # consistent with owner_name, which is also deduplicated.
     grouped.loc[grouped["owner_party_count"] > 1, "owner_type"] = "Co-owner"
-    return grouped
+
+    # Taken from the unfiltered frame: the designated recipient is the designated
+    # recipient even when its own party row is flagged inactive.
+    recipient = (
+        all_parties[all_parties["MAIL_RECIPIENT"].str.upper() == "Y"]
+        .drop_duplicates(subset="TRIMMED_MARK", keep="first")
+        .rename(columns=OWNER_ADDRESS_COLUMNS)
+    )
+    return grouped.merge(
+        recipient[["TRIMMED_MARK", *OWNER_ADDRESS_COLUMNS.values()]],
+        on="TRIMMED_MARK",
+        how="left",
+    )
 
 
 def convert_tc_ccarcs_to_df(zip_path: Path, date: str) -> pd.DataFrame:
     """Build the OpenAirframes Transport Canada frame from a CCARCS zip."""
     df = _read_ccarcs_entry(zip_path, "carscurr.txt", CARSCURR_COLUMNS)
     df_ownr = _read_ccarcs_entry(zip_path, "carsownr.txt", CARSOWNR_COLUMNS)
-    df_ownr = df_ownr.drop(columns=OWNER_PII_COLUMNS)
 
     df = df.merge(_merge_owners(df_ownr), on="TRIMMED_MARK", how="left")
 
@@ -196,6 +216,11 @@ def convert_tc_ccarcs_to_df(zip_path: Path, date: str) -> pd.DataFrame:
         "owner_type": df["owner_type"],
         "owner_province_or_state": df["owner_province_or_state"],
         "owner_country": df["owner_country"],
+        "owner_care_of": df["owner_care_of"],
+        "owner_street_1": df["owner_street_1"],
+        "owner_street_2": df["owner_street_2"],
+        "owner_city": df["owner_city"],
+        "owner_postal_code": df["owner_postal_code"],
         "issue_date": df["ISSUE_DATE"],
         "effective_date": df["EFFECTIVE_DATE"],
         "ineffective_date": df["INEFFECTIVE_DATE"],
