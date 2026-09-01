@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
+import os
 import re
 import urllib.request
 import urllib.error
@@ -184,19 +185,45 @@ def download_latest_aircraft_tc_csv(
         Path to the downloaded file
     """
     output_dir = Path(output_dir)
-    assets = get_latest_release_assets(repo, github_token=github_token)
-    asset = pick_asset(assets, name_regex=r"^openairframes_tc_.*\.csv$")
-    saved_to = download_asset(asset, output_dir / asset.name, github_token=github_token)
-    print(f"Downloaded: {asset.name} ({asset.size} bytes) -> {saved_to}")
-    return saved_to
+    github_token = github_token or os.environ.get("GITHUB_TOKEN")
+
+    # Walk back through releases rather than reading only `latest`. The TC asset is
+    # optional, so a single failed build publishes a release without it; anchoring on
+    # `latest` would then make the caller rebuild history from one day and republish
+    # that as the whole dataset.
+    for release in get_releases(repo, github_token=github_token, per_page=30):
+        assets = get_release_assets_from_release_data(release)
+        try:
+            asset = pick_asset(assets, name_regex=r"^openairframes_tc_.*\.csv$")
+        except FileNotFoundError:
+            continue
+        saved_to = download_asset(asset, output_dir / asset.name, github_token=github_token)
+        if asset.size and saved_to.stat().st_size != asset.size:
+            raise RuntimeError(
+                f"{asset.name}: downloaded {saved_to.stat().st_size} bytes, expected {asset.size}"
+            )
+        print(f"Downloaded: {asset.name} ({asset.size} bytes) -> {saved_to}")
+        return saved_to
+
+    raise FileNotFoundError(
+        "No release in the last 30 releases has an asset matching 'openairframes_tc_.*\\.csv$'"
+    )
 
 
 def get_latest_aircraft_tc_csv_df():
+    """Return (DataFrame, start_date_str) for the most recent published TC release.
+
+    Raises FileNotFoundError when no recent release carries a TC asset, and ValueError
+    when the asset filename has no parseable start date.
+    """
     csv_path = download_latest_aircraft_tc_csv()
     import pandas as pd
-    df = pd.read_csv(csv_path, dtype=str)
+    # keep_default_na=False: a literal "NA"/"N/A" in the source would otherwise read back
+    # as NaN -> "" while the fresh parse keeps the string, so the row fingerprints would
+    # never match and every affected record would re-append on every run.
+    df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
     df = df.fillna("")
-    # Filename pattern: openairframes_tc_{start_date}_{end_date}.csv
+    # Only the start date is taken; the end date is always the run's own date.
     match = re.search(r"openairframes_tc_(\d{4}-\d{2}-\d{2})_", str(csv_path))
     if not match:
         raise ValueError(f"Could not extract date from filename: {csv_path.name}")
