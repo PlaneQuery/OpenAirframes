@@ -37,12 +37,14 @@ CARSOWNR_COLUMNS = [
 # Mailing address of the single designated recipient, matching the registrant_* address
 # the FAA build already publishes. Addresses are per-party, so they are taken from the one
 # MAIL_RECIPIENT row rather than merged across co-owners.
+# registrant_zip_code holds the Canadian postal code: the name is the FAA's, and a union
+# table needs one column per concept, not one per country's vocabulary.
 OWNER_ADDRESS_COLUMNS = {
-    "STREET_NAME": "owner_street_1",
-    "STREET_NAME2": "owner_street_2",
-    "CITY": "owner_city",
-    "POSTAL_CODE": "owner_postal_code",
-    "CARE_OF": "owner_care_of",
+    "STREET_NAME": "registrant_street_1",
+    "STREET_NAME2": "registrant_street_2",
+    "CITY": "registrant_city",
+    "POSTAL_CODE": "registrant_zip_code",
+    "CARE_OF": "registrant_care_of",
 }
 
 
@@ -152,17 +154,17 @@ def _merge_owners(df_ownr: pd.DataFrame) -> pd.DataFrame:
         return len({v.strip() for v in series if v and v.strip()})
 
     grouped = df_ownr.groupby("TRIMMED_MARK", sort=False).agg(
-        owner_name=("FULL_NAME", join_unique),
-        owner_province_or_state=("PROVINCE_OR_STATE_E", join_unique),
-        owner_country=("COUNTRY_E", join_unique),
-        owner_type=("TYPE_OF_OWNER_E", join_unique),
-        owner_party_count=("FULL_NAME", count_distinct),
+        registrant_name=("FULL_NAME", join_unique),
+        registrant_state=("PROVINCE_OR_STATE_E", join_unique),
+        registrant_country=("COUNTRY_E", join_unique),
+        registrant_type=("TYPE_OF_OWNER_E", join_unique),
+        registrant_party_count=("FULL_NAME", count_distinct),
     ).reset_index()
 
     # A party row states its own type ("Individual"); that stops being true of the mark
     # once several parties share it. Counting distinct names rather than rows keeps this
     # consistent with owner_name, which is also deduplicated.
-    grouped.loc[grouped["owner_party_count"] > 1, "owner_type"] = "Co-owner"
+    grouped.loc[grouped["registrant_party_count"] > 1, "registrant_type"] = "Co-owner"
 
     # Taken from the unfiltered frame: the designated recipient is the designated
     # recipient even when its own party row is flagged inactive.
@@ -187,6 +189,8 @@ def convert_tc_ccarcs_to_df(zip_path: Path, date: str) -> pd.DataFrame:
 
     out = pd.DataFrame({
         "download_date": date,
+        # The FAA frame already carries `source`; it is the union discriminator.
+        "source": "TC",
         "transponder_code_hex": df["MODE_S_TRANSPONDER_BINARY"].map(binary_to_hex),
         "registration_number": df["TRIMMED_MARK"].map(tc_full_registration),
         "mark": df["TRIMMED_MARK"],
@@ -196,10 +200,10 @@ def convert_tc_ccarcs_to_df(zip_path: Path, date: str) -> pd.DataFrame:
         "aircraft_category": df["AIRCRAFT_CATEGORY_E"],
         "engine_manufacturer": df["ENGINE_MANUF"],
         "engine_category": df["ENGINE_CATEGORY_E"],
-        "number_of_engines": df["NUMBER_OF_ENGINES"],
-        "number_of_seats": df["NUMBER_OF_SEATS"],
+        "aircraft_number_of_engines": df["NUMBER_OF_ENGINES"],
+        "aircraft_number_of_seats": df["NUMBER_OF_SEATS"],
         "max_weight_kilos": df["AIR_WEIGHT_KILOS"],
-        "registration_status": df["REGISTRATION_AUTH_STATUS_E"],
+        "status": df["REGISTRATION_AUTH_STATUS_E"],
         "registration_sub_type": df["REGISTRATION_SUB_TYPE_E"],
         "basis_for_registration": df["BASIS_FOR_REGISTRATION"],
         "registered_purpose": df["REGISTERED_PURPOSE_E"],
@@ -212,15 +216,15 @@ def convert_tc_ccarcs_to_df(zip_path: Path, date: str) -> pd.DataFrame:
         "city_airport": df["CITY_AIRPORT"],
         "ex_military_mark": df["EX_MILITARY_MARK"],
         "multiple_owner_flag": df["MULTIPLE_OWNER_FLAG"],
-        "owner_name": df["owner_name"],
-        "owner_type": df["owner_type"],
-        "owner_province_or_state": df["owner_province_or_state"],
-        "owner_country": df["owner_country"],
-        "owner_care_of": df["owner_care_of"],
-        "owner_street_1": df["owner_street_1"],
-        "owner_street_2": df["owner_street_2"],
-        "owner_city": df["owner_city"],
-        "owner_postal_code": df["owner_postal_code"],
+        "registrant_name": df["registrant_name"],
+        "registrant_type": df["registrant_type"],
+        "registrant_state": df["registrant_state"],
+        "registrant_country": df["registrant_country"],
+        "registrant_care_of": df["registrant_care_of"],
+        "registrant_street_1": df["registrant_street_1"],
+        "registrant_street_2": df["registrant_street_2"],
+        "registrant_city": df["registrant_city"],
+        "registrant_zip_code": df["registrant_zip_code"],
         "issue_date": df["ISSUE_DATE"],
         "effective_date": df["EFFECTIVE_DATE"],
         "ineffective_date": df["INEFFECTIVE_DATE"],
