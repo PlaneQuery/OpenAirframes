@@ -1,0 +1,70 @@
+name: registry-source
+
+# One registry source, on its own thread. Called once per entry in the caller's matrix, so
+# adding a registry is a matrix entry plus src/create_daily_<source>_release.py — no new job.
+
+on:
+  workflow_call:
+    inputs:
+      source:
+        description: 'Source id; must match src/create_daily_<source>_release.py'
+        required: true
+        type: string
+      date:
+        description: 'Date to process (YYYY-MM-DD, default: today UTC)'
+        required: false
+        type: string
+      python-version:
+        required: false
+        type: string
+        default: '3.14'
+      required:
+        description: 'Fail the thread when this source cannot be built'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build ${{ inputs.source }} registry
+        continue-on-error: ${{ !inputs.required }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE: ${{ inputs.source }}
+          RUN_DATE: ${{ inputs.date }}
+        run: |
+          script="src/create_daily_${SOURCE}_release.py"
+          if [ ! -f "$script" ]; then
+            echo "::error title=Unknown registry source::$script does not exist"
+            exit 1
+          fi
+          python "$script" ${RUN_DATE:+--date "$RUN_DATE"}
+          ls -lah data/openairframes
+
+      - name: Upload ${{ inputs.source }} registry
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry-${{ inputs.source }}
+          path: |
+            data/openairframes/openairframes_${{ inputs.source }}_*.csv
+            data/faa_releasable/ReleasableAircraft_*.zip
+          retention-days: 1
+          if-no-files-found: ignore
