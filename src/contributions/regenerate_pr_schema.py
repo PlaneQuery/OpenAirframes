@@ -20,7 +20,7 @@ from src.contributions.update_schema import (
     check_for_new_tags,
     generate_updated_schema,
 )
-from src.contributions.schema import load_schema, SCHEMAS_DIR
+from src.contributions.schema import load_schema, get_schema_path
 
 
 def main():
@@ -51,8 +51,8 @@ def main():
         # Generate updated schema
         updated_schema = generate_updated_schema(current_schema, tag_registry)
         
-        # Write updated schema (in place)
-        schema_path = SCHEMAS_DIR / "community_submission.v1.schema.json"
+        # Write back to whichever version load_schema() resolved to
+        schema_path = get_schema_path()
         with open(schema_path, 'w') as f:
             json.dump(updated_schema, f, indent=2)
             f.write("\n")

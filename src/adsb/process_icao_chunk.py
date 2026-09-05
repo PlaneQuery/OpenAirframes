@@ -116,7 +116,7 @@ from pathlib import Path
 
 def main():
     parser = argparse.ArgumentParser(description="Process a single archive part for a day")
-    parser.add_argument("--part-id", type=int, required=True, help="Part ID (1-indexed)")
+    parser.add_argument("--part-id", type=int, required=True, help="Part ID (0-indexed)")
     parser.add_argument("--date", type=str, required=True, help="Date in YYYY-MM-DD format")
     args = parser.parse_args()
     
