@@ -58,11 +58,15 @@ jobs:
             required: true
           - source: tc
             required: false
+            # Transport Canada has never published an asset. Remove this once the first
+            # run has succeeded: it exists to permit day one, not to paper over an outage.
+            allow_bootstrap: true
     uses: ./.github/workflows/registry-source.yaml
     with:
       source: ${{ matrix.source }}
       date: ${{ inputs.date }}
       required: ${{ matrix.required }}
+      allow_bootstrap: ${{ matrix.allow_bootstrap == true }}
 
   join-registry:
     needs: build-registry-source
@@ -102,14 +106,20 @@ jobs:
         run: |
           python src/build_registry.py --input-dir artifacts/registry ${RUN_DATE:+--date "$RUN_DATE"}
 
+      - name: Stage release assets
+        run: |
+          mkdir -p data/release-out
+          # Every per-source CSV must ship: each source reads its OWN previous asset to
+          # accumulate, so one that is never published can never be anything but day one.
+          cp artifacts/registry/* data/release-out/
+          cp data/openairframes/openairframes_registry_*.csv data/release-out/
+          ls -lah data/release-out
+
       - name: Upload registry
         uses: actions/upload-artifact@v7
         with:
           name: union-registry
-          path: |
-            data/openairframes/openairframes_registry_*.csv
-            artifacts/registry/openairframes_faa_*.csv
-            artifacts/registry/ReleasableAircraft_*.zip
+          path: data/release-out
           retention-days: 1
           if-no-files-found: error
 
@@ -350,6 +360,11 @@ jobs:
           # Find files from artifacts using find (handles nested structures)
           CSV_FILE_FAA=$(find artifacts/faa -name "openairframes_faa_*.csv" -type f 2>/dev/null | head -1)
           CSV_FILE_REGISTRY=$(find artifacts/faa -name "openairframes_registry_*.csv" -type f 2>/dev/null | head -1)
+          # Every per-source registry CSV, whatever sources the matrix ran.
+          SOURCE_CSVS=$(find artifacts/faa -name "openairframes_*.csv" -type f 2>/dev/null \
+            | grep -v "openairframes_registry_" | grep -v "openairframes_community_" | sort)
+          echo "Per-source registry CSVs found:"
+          echo "$SOURCE_CSVS"
           # Prefer concatenated file (with date range) over single-day file
           CSV_FILE_ADSB=$(find artifacts/adsb -name "openairframes_adsb_*_*.csv.gz" -type f 2>/dev/null | head -1)
           if [ -z "$CSV_FILE_ADSB" ]; then
@@ -423,6 +438,11 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "csv_file_faa=$CSV_FILE_FAA" >> "$GITHUB_OUTPUT"
           echo "csv_file_registry=$CSV_FILE_REGISTRY" >> "$GITHUB_OUTPUT"
+          {
+            echo "source_csvs<<SOURCE_CSVS_EOF"
+            echo "$SOURCE_CSVS"
+            echo "SOURCE_CSVS_EOF"
+          } >> "$GITHUB_OUTPUT"
           echo "csv_basename_registry=$(basename "$CSV_FILE_REGISTRY")" >> "$GITHUB_OUTPUT"
           echo "csv_basename_faa=$CSV_BASENAME_FAA" >> "$GITHUB_OUTPUT"
           echo "csv_file_adsb=$CSV_FILE_ADSB" >> "$GITHUB_OUTPUT"
@@ -479,7 +499,7 @@ jobs:
             ${{ steps.meta.outputs.zip_basename_mictronics && format('- {0}', steps.meta.outputs.zip_basename_mictronics) || '' }}
           files: |
             ${{ steps.meta.outputs.csv_file_registry }}
-            ${{ steps.meta.outputs.csv_file_faa }}
+            ${{ steps.meta.outputs.source_csvs }}
             NOTICE
             ${{ steps.meta.outputs.csv_file_adsb }}
             ${{ steps.meta.outputs.csv_file_community }}
