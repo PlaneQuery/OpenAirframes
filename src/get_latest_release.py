@@ -139,15 +139,29 @@ def download_latest_aircraft_csv(
         Path to the downloaded file
     """
     output_dir = Path(output_dir)
-    assets = get_latest_release_assets(repo, github_token=github_token)
-    try:
-        asset = pick_asset(assets, name_regex=r"^openairframes_faa_.*\.csv$")
-    except FileNotFoundError:
-        # Fallback to old naming pattern
-        asset = pick_asset(assets, name_regex=r"^openairframes_\d{4}-\d{2}-\d{2}_.*\.csv$")
-    saved_to = download_asset(asset, output_dir / asset.name, github_token=github_token)
-    print(f"Downloaded: {asset.name} ({asset.size} bytes) -> {saved_to}")
-    return saved_to
+    github_token = github_token or os.environ.get("GITHUB_TOKEN")
+
+    for release in get_releases(repo, github_token=github_token, per_page=30):
+        assets = get_release_assets_from_release_data(release)
+        try:
+            asset = pick_asset(assets, name_regex=r"^openairframes_faa_.*\.csv$")
+        except FileNotFoundError:
+            try:
+                # Fallback to old naming pattern
+                asset = pick_asset(assets, name_regex=r"^openairframes_\d{4}-\d{2}-\d{2}_.*\.csv$")
+            except FileNotFoundError:
+                continue
+        saved_to = download_asset(asset, output_dir / asset.name, github_token=github_token)
+        if asset.size and saved_to.stat().st_size != asset.size:
+            raise RuntimeError(
+                f"{asset.name}: downloaded {saved_to.stat().st_size} bytes, expected {asset.size}"
+            )
+        print(f"Downloaded: {asset.name} ({asset.size} bytes) -> {saved_to}")
+        return saved_to
+
+    raise FileNotFoundError(
+        "No release in the last 30 releases has an asset matching 'openairframes_faa_.*\\.csv$'"
+    )
 
 def get_latest_aircraft_faa_csv_df():
     csv_path = download_latest_aircraft_csv()

@@ -37,13 +37,20 @@ from derive_from_faa_master_txt import convert_faa_master_txt_to_df, concat_faa_
 from get_latest_release import get_latest_aircraft_faa_csv_df
 df_new = convert_faa_master_txt_to_df(zip_path, date_str)
 
+# Only a genuine first run may rebuild from a single day. A rate limit, a parse error or a
+# non-monotonic download_date must stop the run: this file becomes tomorrow's base, so
+# silently republishing one day erases the accumulated history.
 try:
     df_base, start_date_str = get_latest_aircraft_faa_csv_df()
+except FileNotFoundError as e:
+    print(f"No existing FAA release found, bootstrapping from today only: {e}")
+    df_base = None
+    start_date_str = date_str
+
+if df_base is not None:
     df_base = concat_faa_historical_df(df_base, df_new)
     assert df_base['download_date'].is_monotonic_increasing, "download_date is not monotonic increasing"
-except Exception as e:
-    print(f"No existing FAA release found, using only new data: {e}")
+else:
     df_base = df_new
-    start_date_str = date_str
 
 df_base.to_csv(OUT_ROOT / f"openairframes_faa_{start_date_str}_{date_str}.csv", index=False)
