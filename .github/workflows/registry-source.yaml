@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: false
+      allow_bootstrap:
+        description: 'Onboarding only: permit a single-day rebuild when no asset has ever been published'
+        required: false
+        type: boolean
+        default: false
 
 # Keyed on the source: without it every matrix leg shares one group and the legs cancel
 # each other, which is the opposite of running them in parallel.
@@ -70,8 +75,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOURCE: ${{ inputs.source }}
           RUN_DATE: ${{ inputs.date }}
+          BOOTSTRAP: ${{ inputs.allow_bootstrap && '1' || '' }}
         run: |
-          python "src/create_daily_${SOURCE}_release.py" ${RUN_DATE:+--date "$RUN_DATE"}
+          python "src/create_daily_${SOURCE}_release.py" ${RUN_DATE:+--date "$RUN_DATE"} ${BOOTSTRAP:+--allow-bootstrap}
           # Stage into one directory so every leg's artifact has the same root; a second
           # search path would move the root to the common ancestor for some legs only.
           shopt -s nullglob
@@ -93,4 +99,6 @@ jobs:
           name: registry-${{ inputs.source }}
           path: data/registry-out
           retention-days: 1
-          if-no-files-found: error
+          # A tolerated source that failed has nothing to upload; only a required
+          # source missing its artifact is an error.
+          if-no-files-found: ${{ inputs.required && 'error' || 'ignore' }}

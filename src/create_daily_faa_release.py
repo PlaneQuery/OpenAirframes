@@ -4,6 +4,10 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Create daily FAA release")
 parser.add_argument("--date", type=str, help="Date to process (YYYY-MM-DD format, default: today)")
+parser.add_argument("--allow-bootstrap", action="store_true",
+                    help="Permit rebuilding from a single day when no published asset is found. "
+                         "Onboarding only: a missing asset is otherwise indistinguishable from a "
+                         "transient outage, and rebuilding would erase the accumulated history.")
 args = parser.parse_args()
 
 if args.date:
@@ -43,7 +47,13 @@ df_new = convert_faa_master_txt_to_df(zip_path, date_str)
 try:
     df_base, start_date_str = get_latest_aircraft_faa_csv_df()
 except FileNotFoundError as e:
-    print(f"No existing FAA release found, bootstrapping from today only: {e}")
+    if not args.allow_bootstrap:
+        raise SystemExit(
+            f"No published FAA asset found: {e}\n"
+            "This is indistinguishable from a transient outage, and rebuilding from one day "
+            "would erase the accumulated history. Pass --allow-bootstrap when onboarding."
+        ) from None
+    print(f"Bootstrapping FAA from today only (--allow-bootstrap): {e}")
     df_base = None
     start_date_str = date_str
 
