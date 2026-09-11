@@ -15,6 +15,10 @@ permissions:
   contents: write
   actions: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   trigger-releases:
     runs-on: ubuntu-latest
@@ -62,17 +66,23 @@ jobs:
 
   join-registry:
     needs: build-registry-source
-    if: always() && github.event_name != 'schedule'
+    # No always(): a tolerated source fails its step without failing its leg, so this only
+    # blocks when a required source could not be built.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14"
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
 
       - name: Install dependencies
         run: |
@@ -80,7 +90,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Download every source thread
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: registry-*
           path: artifacts/registry
@@ -93,9 +103,9 @@ jobs:
           python src/build_registry.py --input-dir artifacts/registry ${RUN_DATE:+--date "$RUN_DATE"}
 
       - name: Upload registry
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: registry-union
+          name: union-registry
           path: |
             data/openairframes/openairframes_registry_*.csv
             artifacts/registry/openairframes_faa_*.csv
@@ -279,7 +289,7 @@ jobs:
       - name: Download joined registry
         uses: actions/download-artifact@v5
         with:
-          name: registry-union
+          name: union-registry
           path: artifacts/faa
 
       - name: Download ADS-B artifacts
@@ -438,7 +448,14 @@ jobs:
       - name: Delete existing release if exists
         run: |
           echo "Attempting to delete release: ${{ steps.meta.outputs.tag }}"
-          gh release delete "${{ steps.meta.outputs.tag }}" --yes --cleanup-tag || echo "No existing release to delete"
+          # `|| echo` here would swallow a 403 or a partial delete, leaving yesterday's
+          # asset attached alongside today's; the next run then matches two and rebuilds
+          # the dataset from a single day.
+          if gh release view "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            gh release delete "${{ steps.meta.outputs.tag }}" --yes --cleanup-tag
+          else
+            echo "No existing release to delete"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -452,6 +469,7 @@ jobs:
             Automated daily snapshot generated at 06:00 UTC for ${{ steps.meta.outputs.date }}.
 
             Assets:
+            - NOTICE (source terms; required for redistribution)
             - ${{ steps.meta.outputs.csv_basename_registry }}
             - ${{ steps.meta.outputs.csv_basename_faa }}
             ${{ steps.meta.outputs.csv_basename_adsb && format('- {0}', steps.meta.outputs.csv_basename_adsb) || '' }}
