@@ -50,8 +50,10 @@ OWNER_ADDRESS_COLUMNS = {
 
 FOOTER_RE = re.compile(r"\s*(\d+) rows selected\.\s*")
 
-# Canada's register is ~35k aircraft. Any parse yielding less than this means the
-# export was truncated upstream, which must not be published as a real snapshot.
+# Floor, not an expectation: Canada's register is ~35k aircraft and carsownr is larger
+# still, so 1000 only catches a grossly truncated export. The footer row-count check above
+# is what actually validates the parse; this guards the case where the footer agrees with a
+# near-empty body.
 MIN_EXPECTED_ROWS = 1000
 
 
