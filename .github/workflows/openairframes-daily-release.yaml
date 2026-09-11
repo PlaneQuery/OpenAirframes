@@ -10,6 +10,10 @@ on:
         description: 'Date to process (YYYY-MM-DD format, default: yesterday)'
         required: false
         type: string
+      bootstrap_source:
+        description: 'Onboarding only: the one source id permitted to rebuild from a single day'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -58,15 +62,14 @@ jobs:
             required: true
           - source: tc
             required: false
-            # Transport Canada has never published an asset. Remove this once the first
-            # run has succeeded: it exists to permit day one, not to paper over an outage.
-            allow_bootstrap: true
     uses: ./.github/workflows/registry-source.yaml
     with:
       source: ${{ matrix.source }}
       date: ${{ inputs.date }}
       required: ${{ matrix.required }}
-      allow_bootstrap: ${{ matrix.allow_bootstrap == true }}
+      # Standing permission would also fire on an outage. A source bootstraps only when a
+      # human dispatches the run naming it.
+      allow_bootstrap: ${{ inputs.bootstrap_source == matrix.source }}
 
   join-registry:
     needs: build-registry-source
@@ -362,7 +365,7 @@ jobs:
           CSV_FILE_REGISTRY=$(find artifacts/faa -name "openairframes_registry_*.csv" -type f 2>/dev/null | head -1)
           # Every per-source registry CSV, whatever sources the matrix ran.
           SOURCE_CSVS=$(find artifacts/faa -name "openairframes_*.csv" -type f 2>/dev/null \
-            | grep -v "openairframes_registry_" | grep -v "openairframes_community_" | sort)
+            | grep -vE '/openairframes_(registry|community|adsb)_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}-[0-9]{2}-[0-9]{2}\.csv$' | sort)
           echo "Per-source registry CSVs found:"
           echo "$SOURCE_CSVS"
           # Prefer concatenated file (with date range) over single-day file
@@ -442,6 +445,11 @@ jobs:
             echo "source_csvs<<SOURCE_CSVS_EOF"
             echo "$SOURCE_CSVS"
             echo "SOURCE_CSVS_EOF"
+            echo "source_basenames<<SOURCE_BASENAMES_EOF"
+            echo "$SOURCE_CSVS" | while read -r f; do
+              [ -n "$f" ] && echo "- $(basename "$f")"
+            done
+            echo "SOURCE_BASENAMES_EOF"
           } >> "$GITHUB_OUTPUT"
           echo "csv_basename_registry=$(basename "$CSV_FILE_REGISTRY")" >> "$GITHUB_OUTPUT"
           echo "csv_basename_faa=$CSV_BASENAME_FAA" >> "$GITHUB_OUTPUT"
@@ -491,7 +499,7 @@ jobs:
             Assets:
             - NOTICE (source terms; required for redistribution)
             - ${{ steps.meta.outputs.csv_basename_registry }}
-            - ${{ steps.meta.outputs.csv_basename_faa }}
+            ${{ steps.meta.outputs.source_basenames }}
             ${{ steps.meta.outputs.csv_basename_adsb && format('- {0}', steps.meta.outputs.csv_basename_adsb) || '' }}
             - ${{ steps.meta.outputs.csv_basename_community }}
             - ${{ steps.meta.outputs.zip_basename }}

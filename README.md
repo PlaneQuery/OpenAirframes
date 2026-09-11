@@ -36,6 +36,11 @@ df
   All [FAA registration data](https://www.faa.gov/licenses_certificates/aircraft_certification/aircraft_registry/releasable_aircraft_download) from 2023-08-16 to present (~275 MB).
   Superseded by `openairframes_registry.csv`; still published so existing consumers keep working.
 
+- **openairframes_tc.csv**  
+  The [Transport Canada Civil Aircraft Register](https://wwwapps.tc.gc.ca/saf-sec-sur/2/ccarcs-riacc/RchSimp.aspx),
+  ~35k aircraft with full ICAO 24-bit hex coverage. Also folded into
+  `openairframes_registry.csv`; published separately for the same reason as the FAA CSV.
+
 - **ReleasableAircraft_{date}.zip**  
   A daily snapshot of the FAA database, which updates at **05:30 UTC**
 
