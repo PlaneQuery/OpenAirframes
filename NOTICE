@@ -1,0 +1,66 @@
+OpenAirframes — Data Source Notices
+===================================
+
+The LICENSE file covers the *code* in this repository. It does not cover the
+*data* published in releases. Several upstream registries permit redistribution
+only on condition that specific notices travel with the data. Those conditions
+are reproduced below. This file is published as an asset on every release; anyone
+redistributing a release asset further must carry the corresponding notice with it.
+
+Removing or altering a notice in this file removes the permission that makes the
+corresponding asset redistributable.
+
+
+Transport Canada — Canadian Civil Aircraft Register (CCARCS)
+------------------------------------------------------------
+Asset: openairframes_tc_*.csv
+Source: https://wwwapps.tc.gc.ca/saf-sec-sur/2/ccarcs-riacc/download/ccarcsdb.zip
+
+Redistribution is permitted under the Government of Canada terms recorded for this
+dataset. They require both of the following notices, verbatim, and require that the
+two reach the consumer together. The governing instrument is not published on the
+CCARCS download page, so no licence name or URL is asserted here.
+
+    Reproduced and distributed with the permission of the Government of Canada.
+
+    This product has been produced by or for the OpenAirframes project and
+    includes data provided by the Government of Canada. The incorporation of
+    data sourced from the Government of Canada within this product shall not be
+    construed as constituting an endorsement by the Government of Canada of our
+    product.
+
+Registered-owner mailing addresses are redistributed, matching the registrant
+addresses the FAA asset already carries. Because CCARCS lists one row per party,
+the published address is that of the single designated mail recipient rather than
+a merge across co-owners.
+
+
+FAA — Releasable Aircraft Database
+-----------------------------------
+Source: https://registry.faa.gov/database/ReleasableAircraft.zip
+
+ReleasableAircraft_*.zip is redistributed unmodified. It is a work of the United
+States federal government, not subject to copyright protection in the United
+States (17 U.S.C. § 105). No notice is required; it is credited for provenance.
+
+openairframes_faa_*.csv is a derived product built by this repository —
+normalized, joined, deduplicated, and extended with an identifier this project
+defines. Section 105 disclaims copyright in the government's own work and says
+nothing about a derivative, so no claim is made here about the CSV's status.
+
+
+Other redistributed assets
+---------------------------
+The following assets are republished from third parties whose terms have not
+been assessed in this repository. They are listed for provenance only; nothing
+here asserts a licence over them.
+
+    openairframes_adsb_*.csv.gz   derived from adsb.lol daily globe history
+                                  (github.com/adsblol), with registration data
+                                  from tar1090-db
+    basic-ac-db_*.json.gz         ADS-B Exchange, downloads.adsbexchange.com
+    mictronics-db_*.zip           Mictronics, www.mictronics.de
+
+Community submissions under community/ are contributed by their authors through
+the repository's submission workflow and are published with the attribution each
+contributor selected.

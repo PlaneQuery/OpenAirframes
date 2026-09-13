@@ -26,12 +26,33 @@ df = pd.read_csv(url)
 df
 ```
 ![](docs/images/df_adsb_example_0.png)
-- **openairframes_faa.csv**  
-  All [FAA registration data](https://www.faa.gov/licenses_certificates/aircraft_certification/aircraft_registry/releasable_aircraft_download) from 2023-08-16 to present (~260 MB)
+- **openairframes_registry.csv**  
+  Every national registry in one table, one row per registration record, with a `source`
+  column naming the registry it came from. Currently the FAA (United States) and Transport
+  Canada. Identifier columns (`transponder_code_hex`, `registration_number`,
+  `openairframes_id`) lead the table and are populated for every source.
 
+- **openairframes_faa.csv**  
+  All [FAA registration data](https://www.faa.gov/licenses_certificates/aircraft_certification/aircraft_registry/releasable_aircraft_download) from 2023-08-16 to present (~275 MB).
+  Superseded by `openairframes_registry.csv`; still published so existing consumers keep working.
+
+- **openairframes_tc.csv**  
+  The [Transport Canada Civil Aircraft Register](https://wwwapps.tc.gc.ca/saf-sec-sur/2/ccarcs-riacc/RchSimp.aspx),
+  ~35k aircraft with full ICAO 24-bit hex coverage. Also folded into
+  `openairframes_registry.csv`; published separately for the same reason as the FAA CSV.
 
 - **ReleasableAircraft_{date}.zip**  
   A daily snapshot of the FAA database, which updates at **05:30 UTC**
+
+- **basic-ac-db.json.gz**  
+  [ADS-B Exchange](https://www.adsbexchange.com/) basic aircraft database, republished unmodified.
+
+- **mictronics-db.zip**  
+  [Mictronics](https://www.mictronics.de/aircraft-database/) aircraft database, republished
+  unmodified. Best effort — the release ships without it when the source is unavailable.
+
+Redistribution terms for the underlying sources travel with the release in **NOTICE**. Some
+registries permit redistribution only on condition that specific notices reach you with the data.
 
 ---
 
